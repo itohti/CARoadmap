@@ -1,13 +1,13 @@
-package com.example;
+package com.caroadmap;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class ExamplePluginTest
+public class CARoadmapPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(ExamplePlugin.class);
+		ExternalPluginManager.loadBuiltin(CARoadmapPlugin.class);
 		RuneLite.main(args);
 	}
 }

@@ -16,6 +16,8 @@ repositories {
 def runeLiteVersion = 'latest.release'
 
 dependencies {
+	implementation 'org.apache.poi:poi-ooxml:5.2.3'
+
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
 
 	compileOnly 'org.projectlombok:lombok:1.18.30'
