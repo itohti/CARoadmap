@@ -4,16 +4,16 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("example")
+@ConfigGroup("CARoadmap")
 public interface CARoadmapConfig extends Config
 {
 	@ConfigItem(
-		keyName = "greeting",
-		name = "Welcome Greeting",
-		description = "The message to show to the user when they login"
+		keyName = "taskPreference",
+		name = "Task Preference",
+		description = "Type the task type from the most preferred to least preferred"
 	)
-	default String greeting()
+	default String taskPreference()
 	{
-		return "Hello";
+		return "kill count, mechanical, restriction, perfection, stamina, speed";
 	}
 }
