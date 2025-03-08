@@ -109,13 +109,13 @@ public class CSVHandler {
                 while ((len = in.read(buf)) > 0) {
                     out.write(buf, 0, len);
                 }
-                // Work here you did not successfully delete the tmp file.
 
                 in.close();
                 out.flush();
                 out.close();
-                if (tmp.delete()) {
-                    System.out.println("Deleted tmp file");
+                if (!tmp.delete()) {
+                    // revisit this.
+                    System.out.println("Could not delete tmp file...");
                 }
             } catch (IOException ce) {
                 System.err.println("Manual file copy also failed: " + ce.getMessage());
