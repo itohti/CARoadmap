@@ -1,6 +1,6 @@
 package com.caroadmap;
 
-public enum ExcelColumns {
+public enum CSVColumns {
     BOSS_NAME(0),
     TASK_NAME(1),
     TASK_DESCRIPTION(2),
@@ -10,7 +10,7 @@ public enum ExcelColumns {
 
     private final int index;
 
-    ExcelColumns(int index) {
+    CSVColumns(int index) {
         this.index = index;
     }
 
