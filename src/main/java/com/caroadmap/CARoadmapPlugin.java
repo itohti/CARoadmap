@@ -71,17 +71,18 @@ public class CARoadmapPlugin extends Plugin
 			return t;
 		});
 
-		firestoreExecutor.submit(() -> {
-			firestore = new FirebaseDatabase();
-		});
-
-		csvHandlerExecutor.submit(() -> {
-			csvHandler = new CSVHandler();
-		});
-
 		clientThread.invoke(() -> {
 			populateBossList(client.getLauncherDisplayName());
 			populateBossToRaid();
+
+			firestoreExecutor.submit(() -> {
+				this.firestore = new FirebaseDatabase();
+			});
+
+			csvHandlerExecutor.submit(() -> {
+				this.csvHandler = new CSVHandler();
+			});
+
 			return true;
 		});
 	}

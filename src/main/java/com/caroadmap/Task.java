@@ -93,7 +93,7 @@ public class Task {
         task.put("Boss", boss);
         task.put("Task Name", taskName);
         task.put("Task Description", taskDescription);
-        task.put("Type", type);
+        task.put("Type", type.name());
         task.put("Tier", tier);
         task.put("Done", done);
 
