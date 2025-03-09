@@ -183,8 +183,8 @@ General Graardor,"General Graardor Veteran","Kill General Graardor 100 times.",K
 General Graardor,"Ourg Freezer II","Kill General Graardor without him attacking any players.",MECHANICAL,4,true
 ,"Reflecting on This Encounter","Kill a Basilisk Knight.",KILL_COUNT,4,true
 Callisto,"Callisto Veteran","Kill Callisto 20 times.",KILL_COUNT,4,false
-Skotizo,"Demon Evasion","Kill Skotizo without taking any damage.",PERFECTION,4,false
-Skotizo,"Up for the Challenge","Kill Skotizo without equipping a demonbane weapon.",RESTRICTION,4,false
+Skotizo,"Demon Evasion","Kill Skotizo without taking any damage.",PERFECTION,4,true
+Skotizo,"Up for the Challenge","Kill Skotizo without equipping a demonbane weapon.",RESTRICTION,4,true
 Cerberus,"Cerberus Veteran","Kill Cerberus 75 times.",KILL_COUNT,4,false
 Cerberus,"Ghost Buster","Kill Cerberus after successfully negating 6 or more attacks from Summoned Souls.",MECHANICAL,4,false
 Cerberus,"Unrequired Antifire","Kill Cerberus without taking damage from any lava pools.",PERFECTION,4,false
@@ -331,7 +331,7 @@ Amoxliatl,"Without Ralos' Light","Kill Amoxliatl without losing any prayer point
 The Royal Titans,"No time to pray","Kill the Royal Titans without losing any prayer points.",RESTRICTION,4,true
 Kree'Arra,"Collateral Damage","Kill Kree'arra in a privately rented instance without ever attacking him directly.",MECHANICAL,5,false
 Kree'Arra,"Swoop No More","Kill Kree'arra in a privately rented instance without taking any melee damage from the boss or his bodyguards.",PERFECTION,5,false
-Skotizo,"Precise Positioning","Kill Skotizo with the final source of damage being a Chinchompa explosion.",RESTRICTION,5,false
+Skotizo,"Precise Positioning","Kill Skotizo with the final source of damage being a Chinchompa explosion.",RESTRICTION,5,true
 Cerberus,"Cerberus Master","Kill Cerberus 150 times.",KILL_COUNT,5,false
 Cerberus,"Arooo No More","Kill Cerberus without any of the Summoned Souls being spawned.",MECHANICAL,5,false
 Corporeal Beast,"Corporeal Beast Master","Kill the Corporeal Beast 50 times.",KILL_COUNT,5,false
@@ -444,7 +444,7 @@ Tombs of Amascut,"Better get movin'","Defeat Elidinis' Warden in phase three of 
 Tombs of Amascut,"Warden't you believe it","Defeat the Wardens with all Wardens invocations activated, at expert level and without dying yourself.",MECHANICAL,5,true
 Tombs of Amascut,"Resourceful Raider","Complete the Tombs of Amascut with the ""On a diet"" and ""Dehydration"" invocations activated and without anyone dying.",RESTRICTION,5,false
 Tombs of Amascut,"But... Damage","Complete the Tombs of Amascut without anyone in your party wearing or holding any equipment at tier 75 or above.",RESTRICTION,5,false
-Tombs of Amascut,"Chompington","Defeat Zebak using only melee attacks and without dying yourself.",RESTRICTION,5,false
+Tombs of Amascut,"Chompington","Defeat Zebak using only melee attacks and without dying yourself.",RESTRICTION,5,true
 Tombs of Amascut,"Fancy feet","Complete phase three of The Wardens in a group of two or more, using only melee attacks and without dying yourself. The 'Insanity' invocation must be activated.",RESTRICTION,5,false
 Tombs of Amascut,"Perfect Akkha","Complete Akkha in a group of two or more, without anyone taking any hits from the following: Akkha's attacks off-prayer, Akkha's special attacks (orbs, memory, detonate), exploding shadow timers, orbs in the enrage phase or attacking Akkha with the wrong style. Hits for zero damage still count. You must have all Akkha invocations activated.",PERFECTION,5,false
 Tombs of Amascut,"Perfect Ba-Ba","Defeat Ba-Ba in a group of two or more, without anyone taking any hits from the following: Ba-Ba's Attacks off-prayer, Ba-Ba's slam, rolling boulders, rubble attack or falling rocks. Hits for zero damage still count. No sarcophagi may be opened. You must have all Ba-Ba invocations activated.",PERFECTION,5,false

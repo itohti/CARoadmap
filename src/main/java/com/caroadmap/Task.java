@@ -1,5 +1,8 @@
 package com.caroadmap;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Task {
     private String boss;
     private String taskName;
@@ -79,6 +82,22 @@ public class Task {
 
     public void setDone(boolean done) {
         this.done = done;
+    }
+
+    /**
+     * This method is used to convert the Task object into a Map<String, Object> for Firestore.
+     * @return a Map<String, Object> where the variable name maps to the variable object.
+     */
+    public Map<String, Object> formatTask() {
+        Map<String, Object> task = new HashMap<>();
+        task.put("Boss", boss);
+        task.put("Task Name", taskName);
+        task.put("Task Description", taskDescription);
+        task.put("Type", type);
+        task.put("Tier", tier);
+        task.put("Done", done);
+
+        return task;
     }
 
     /**
