@@ -30,7 +30,7 @@ public class FirebaseDatabase {
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
-            FirebaseApp app = FirebaseApp.initializeApp(options, "CARoadmap");
+            FirebaseApp.initializeApp(options);
             System.out.println("FirebaseApp initialized...");
             this.db = FirestoreClient.getFirestore(); // hanging here.
             System.out.println("Fetched Firestore...");
@@ -38,6 +38,9 @@ public class FirebaseDatabase {
         catch (IOException e) {
             // find out what to do here.
             System.err.println("Could not find Firebase credentials...");
+        }
+        catch (Exception e) {
+            System.err.println("Something went wrong: " + e.getMessage());
         }
     }
 
