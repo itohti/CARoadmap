@@ -73,7 +73,7 @@ public class CARoadmapPlugin extends Plugin
 
 		firestoreExecutor.submit(() -> {
 			System.out.println("Initializing FirebaseDatabase");
-			this.firestore = new FirebaseDatabase();
+			this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
 			System.out.println("Firebase initialization completed successfully");
 		});
 

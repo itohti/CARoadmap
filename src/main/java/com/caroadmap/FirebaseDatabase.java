@@ -2,10 +2,7 @@ package com.caroadmap;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.api.core.ApiFuture;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.WriteBatch;
-import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.firestore.*;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
@@ -23,11 +20,12 @@ import java.util.concurrent.*;
 public class FirebaseDatabase {
     private Firestore db;
     private WriteBatch currentBatch;
+    private CollectionReference userTasks;
     private int batchCount;
     /**
      * Constructor that sets up Admin SDK access to firebase project.
      */
-    public FirebaseDatabase() {
+    public FirebaseDatabase(String username) {
         try {
             FileInputStream serviceAccount =
                     new FileInputStream("./src/main/resources/caroadmap-firebase-adminsdk-fbsvc-ace27393f8.json");
@@ -38,6 +36,7 @@ public class FirebaseDatabase {
             FirebaseApp.initializeApp(options);
             try {
                 this.db = FirestoreClient.getFirestore();
+                userTasks = db.collection("users").document(username).collection("tasks");
                 this.currentBatch = db.batch();
             }
             catch (Exception e) {
@@ -65,8 +64,7 @@ public class FirebaseDatabase {
         // first format task into a Map<String, Object> object.
         Map<String, Object> taskObj = task.formatTask();
         try {
-            DocumentReference docRef = db.collection("users").document(username)
-                    .collection("tasks").document(task.getTaskName());
+            DocumentReference docRef = userTasks.document(task.getTaskName());
             currentBatch.set(docRef, task.formatTask());
             batchCount++;
 
