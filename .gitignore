@@ -8,4 +8,4 @@ nbactions.xml
 nb-configuration.xml
 nbproject/
 src/main/resources/*.json
-src/main/resources/Combat_Achivements_Checklist.csv
+src/main/resources/Combat_Achievements_Checklist.csv

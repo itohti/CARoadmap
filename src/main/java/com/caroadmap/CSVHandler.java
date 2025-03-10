@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class CSVHandler {
-    private final String csvPath = "./src/main/resources/Combat_Achivements_Checklist.csv";
+    private final String csvPath = "./src/main/resources/Combat_Achievements_Checklist.csv";
 
     /**
      * Creates a CSV file if it doesn't already exist.
