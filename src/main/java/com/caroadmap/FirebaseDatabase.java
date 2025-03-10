@@ -4,6 +4,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.WriteBatch;
+import com.google.cloud.firestore.WriteResult;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
@@ -11,14 +13,17 @@ import com.google.firebase.cloud.FirestoreClient;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
 
 /**
  * Handles all logic regarding firestore.
  */
 public class FirebaseDatabase {
     private Firestore db;
+    private WriteBatch currentBatch;
+    private int batchCount;
     /**
      * Constructor that sets up Admin SDK access to firebase project.
      */
@@ -31,9 +36,15 @@ public class FirebaseDatabase {
                     .build();
 
             FirebaseApp.initializeApp(options);
-            System.out.println("FirebaseApp initialized...");
-            this.db = FirestoreClient.getFirestore(); // hanging here.
-            System.out.println("Fetched Firestore...");
+            try {
+                this.db = FirestoreClient.getFirestore();
+                this.currentBatch = db.batch();
+            }
+            catch (Exception e) {
+                System.err.println("Something went wrong: " + e.getMessage());
+            }
+
+            batchCount = 0;
         }
         catch (IOException e) {
             // find out what to do here.
@@ -50,23 +61,45 @@ public class FirebaseDatabase {
      * @param task the task that needs to be added.
      * @return returns the result of the operation.
      */
-    public String addTaskToFirestore(String collection, Task task) {
+    public boolean addTaskToBatch(String username, Task task) {
         // first format task into a Map<String, Object> object.
         Map<String, Object> taskObj = task.formatTask();
         try {
-            System.out.println("Attempting to upload task to collection: " + collection);
-            ApiFuture<DocumentReference> future = db.collection(collection).add(taskObj);
-            System.out.println("Request sent, waiting for response...");
-            DocumentReference result = future.get();
-            System.out.println("Task uploaded successfully: " + result.toString());
+            DocumentReference docRef = db.collection("users").document(username)
+                    .collection("tasks").document(task.getTaskName());
+            currentBatch.set(docRef, task.formatTask());
+            batchCount++;
 
-            return result.toString();
+            return true;
         }
-        catch (InterruptedException | ExecutionException e) {
+        catch (Exception e) {
             System.err.println("Could not upload task into Firestore: " + e.getMessage());
-            // this indicates a failure.
-            return null;
+            return false;
         }
     }
 
+    /**
+     * Commits the batch to firestore.
+     * @return true if it successfully wrote the batch to firestore.
+     */
+    public boolean commitBatch() {
+        if (batchCount == 0) {
+            return true; // nothing to commit
+        }
+
+        try {
+            ApiFuture<List<WriteResult>> future = currentBatch.commit();
+            List<WriteResult> result = future.get();
+
+            System.out.println("Commited " + batchCount + " writes.");
+            currentBatch = db.batch();
+            batchCount = 0;
+
+            return true;
+        }
+        catch (InterruptedException | ExecutionException e) {
+            System.err.println("Could not get future of batch.commit()...");
+            return false;
+        }
+    }
 }

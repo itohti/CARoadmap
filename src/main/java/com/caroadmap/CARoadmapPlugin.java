@@ -71,13 +71,15 @@ public class CARoadmapPlugin extends Plugin
 			return t;
 		});
 
+		firestoreExecutor.submit(() -> {
+			System.out.println("Initializing FirebaseDatabase");
+			this.firestore = new FirebaseDatabase();
+			System.out.println("Firebase initialization completed successfully");
+		});
+
 		clientThread.invoke(() -> {
 			populateBossList(client.getLauncherDisplayName());
 			populateBossToRaid();
-
-			firestoreExecutor.submit(() -> {
-				this.firestore = new FirebaseDatabase();
-			});
 
 			csvHandlerExecutor.submit(() -> {
 				this.csvHandler = new CSVHandler();
@@ -162,8 +164,10 @@ public class CARoadmapPlugin extends Plugin
 				Task taskObject = new Task(boss, name, description, type, tier, done);
 				// add to Firestore
 				firestoreExecutor.submit(() -> {
-					String result = firestore.addTaskToFirestore("tasks", taskObject);
-					System.out.println(result);
+					boolean result = firestore.addTaskToBatch(client.getLauncherDisplayName(), taskObject);
+					if (!result) {
+						System.err.println("Could not add task to batch");
+					}
 				});
 
 				// finding the task in the csv file by its name
@@ -182,9 +186,15 @@ public class CARoadmapPlugin extends Plugin
 						log.info("Could not find task in csv, creating an entry for it...");
 					}
 				});
-
 			}
 		}
+
+		firestoreExecutor.submit(() -> {
+			boolean result = firestore.commitBatch();
+			if (!result) {
+				System.err.println("Could not commit batch to firestore.");
+			}
+		});
 	}
 
 	public void populateBossList(String displayName) {
