@@ -1,0 +1,103 @@
+package com.caroadmap;
+
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.*;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.cloud.FirestoreClient;
+
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
+
+/**
+ * Handles all logic regarding firestore.
+ */
+public class FirebaseDatabase {
+    private Firestore db;
+    private WriteBatch currentBatch;
+    private CollectionReference userTasks;
+    private int batchCount;
+    /**
+     * Constructor that sets up Admin SDK access to firebase project.
+     */
+    public FirebaseDatabase(String username) {
+        try {
+            FileInputStream serviceAccount =
+                    new FileInputStream("./src/main/resources/caroadmap-firebase-adminsdk-fbsvc-ace27393f8.json");
+            FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .build();
+
+            FirebaseApp.initializeApp(options);
+            try {
+                this.db = FirestoreClient.getFirestore();
+                userTasks = db.collection("users").document(username).collection("tasks");
+                this.currentBatch = db.batch();
+            }
+            catch (Exception e) {
+                System.err.println("Something went wrong: " + e.getMessage());
+            }
+
+            batchCount = 0;
+        }
+        catch (IOException e) {
+            // find out what to do here.
+            System.err.println("Could not find Firebase credentials...");
+        }
+        catch (Exception e) {
+            System.err.println("Something went wrong: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Adds a task into the Firestore database.
+     * @param collection the collection name.
+     * @param task the task that needs to be added.
+     * @return returns the result of the operation.
+     */
+    public boolean addTaskToBatch(String username, Task task) {
+        // first format task into a Map<String, Object> object.
+        Map<String, Object> taskObj = task.formatTask();
+        try {
+            DocumentReference docRef = userTasks.document(task.getTaskName());
+            currentBatch.set(docRef, task.formatTask());
+            batchCount++;
+
+            return true;
+        }
+        catch (Exception e) {
+            System.err.println("Could not upload task into Firestore: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Commits the batch to firestore.
+     * @return true if it successfully wrote the batch to firestore.
+     */
+    public boolean commitBatch() {
+        if (batchCount == 0) {
+            return true; // nothing to commit
+        }
+
+        try {
+            ApiFuture<List<WriteResult>> future = currentBatch.commit();
+            List<WriteResult> result = future.get();
+
+            System.out.println("Commited " + batchCount + " writes.");
+            currentBatch = db.batch();
+            batchCount = 0;
+
+            return true;
+        }
+        catch (InterruptedException | ExecutionException e) {
+            System.err.println("Could not get future of batch.commit()...");
+            return false;
+        }
+    }
+}

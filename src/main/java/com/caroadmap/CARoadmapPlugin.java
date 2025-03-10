@@ -20,7 +20,9 @@ import net.runelite.client.callback.ClientThread;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 @Slf4j
 @PluginDescriptor(
@@ -41,20 +43,48 @@ public class CARoadmapPlugin extends Plugin
 	private HiscoreClient hiscoreClient;
 
 	private CSVHandler csvHandler;
+	private FirebaseDatabase firestore;
 
 	private boolean getData = false;
 
 	private final Map<String, Integer> bossList = new HashMap<>();
 	private final Map<String, String> bossToRaid = new HashMap<>();
 
+	private ExecutorService firestoreExecutor;
+	private ExecutorService csvHandlerExecutor;
+
+
 	@Override
 	protected void startUp() throws Exception
 	{
+		firestoreExecutor = Executors.newSingleThreadExecutor(r -> {
+			Thread t = Executors.defaultThreadFactory().newThread(r);
+			t.setDaemon(true);
+			t.setName("FirestoreThread");
+			return t;
+		});
+
+		csvHandlerExecutor = Executors.newSingleThreadExecutor(r -> {
+			Thread t = Executors.defaultThreadFactory().newThread(r);
+			t.setDaemon(true);
+			t.setName("csvThread");
+			return t;
+		});
+
+		firestoreExecutor.submit(() -> {
+			System.out.println("Initializing FirebaseDatabase");
+			this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
+			System.out.println("Firebase initialization completed successfully");
+		});
+
 		clientThread.invoke(() -> {
 			populateBossList(client.getLauncherDisplayName());
 			populateBossToRaid();
-			// initialize csvHandler.
-			csvHandler = new CSVHandler();
+
+			csvHandlerExecutor.submit(() -> {
+				this.csvHandler = new CSVHandler();
+			});
+
 			return true;
 		});
 	}
@@ -62,7 +92,8 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void shutDown() throws Exception
 	{
-		log.info("Example stopped!");
+		firestoreExecutor.shutdown();
+		csvHandlerExecutor.shutdown();
 	}
 
 	@Subscribe
@@ -131,22 +162,39 @@ public class CARoadmapPlugin extends Plugin
 				boolean done = client.getIntStack()[0] != 0;
 
 				Task taskObject = new Task(boss, name, description, type, tier, done);
-				// finding the task in the csv file by its name
-				Task readTask = csvHandler.getTask(name);
-				if (readTask != null) {
-					// if the task in the csv does not equal the task we fetched from the game update it.
-					// this would typically happen if a player has completed a task.
-					if (!taskObject.equals(readTask)) {
-						csvHandler.updateTask(taskObject);
-						log.info("Task in csv and game task did not match updating...");
+				// add to Firestore
+				firestoreExecutor.submit(() -> {
+					boolean result = firestore.addTaskToBatch(client.getLauncherDisplayName(), taskObject);
+					if (!result) {
+						System.err.println("Could not add task to batch");
 					}
-				} else {
-					// otherwise if we did not find the task in the csv file create a entry in the csv file.
-					csvHandler.createTask(taskObject);
-					log.info("Could not find task in csv, creating an entry for it...");
-				}
+				});
+
+				// finding the task in the csv file by its name
+				csvHandlerExecutor.submit(() -> {
+					Task readTask = csvHandler.getTask(name);
+					if (readTask != null) {
+						// if the task in the csv does not equal the task we fetched from the game update it.
+						// this would typically happen if a player has completed a task.
+						if (!taskObject.equals(readTask)) {
+							csvHandler.updateTask(taskObject);
+							log.info("Task in csv and game task did not match updating...");
+						}
+					} else {
+						// otherwise if we did not find the task in the csv file create a entry in the csv file.
+						csvHandler.createTask(taskObject);
+						log.info("Could not find task in csv, creating an entry for it...");
+					}
+				});
 			}
 		}
+
+		firestoreExecutor.submit(() -> {
+			boolean result = firestore.commitBatch();
+			if (!result) {
+				System.err.println("Could not commit batch to firestore.");
+			}
+		});
 	}
 
 	public void populateBossList(String displayName) {
