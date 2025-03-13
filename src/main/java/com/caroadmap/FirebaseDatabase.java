@@ -10,6 +10,7 @@ import com.google.firebase.cloud.FirestoreClient;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -27,8 +28,11 @@ public class FirebaseDatabase {
      */
     public FirebaseDatabase(String username) {
         try {
-            FileInputStream serviceAccount =
-                    new FileInputStream("./src/main/resources/caroadmap-firebase-adminsdk-fbsvc-ace27393f8.json");
+            InputStream serviceAccount =
+                    getClass().getResourceAsStream("/caroadmap-firebase-adminsdk-fbsvc-ace27393f8.json");
+            if (serviceAccount == null) {
+                throw new IOException("Could not find firebase credentials");
+            }
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();

@@ -1,5 +1,7 @@
 package com.caroadmap;
 
+import net.runelite.client.RuneLite;
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 
@@ -8,13 +10,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class CSVHandler {
-    private final String csvPath = "./src/main/resources/Combat_Achievements_Checklist.csv";
-
+    private String csvPath;
     /**
      * Creates a CSV file if it doesn't already exist.
      */
     public CSVHandler() {
-        File csvFile = new File(csvPath);
+        File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
+        if (!pluginDir.exists()) {
+            pluginDir.mkdirs();
+        }
+
+        File csvFile = new File(pluginDir, "combat_achievements_checklist.csv");
         if (!csvFile.exists()) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile))) {
                 writer.write("Boss,Task Name,Task Description,Type,Tier,Done\n");
@@ -22,6 +28,8 @@ public class CSVHandler {
                 System.err.println("Could not create reader and writer for csv file.");
             }
         }
+
+        this.csvPath = csvFile.getPath();
     }
 
     /**
