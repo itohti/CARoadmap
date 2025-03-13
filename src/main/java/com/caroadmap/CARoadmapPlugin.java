@@ -1,11 +1,14 @@
 package com.caroadmap;
 
+import com.caroadmap.ui.CARoadmapPanel;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
 
 import com.google.inject.Provides;
+
 import javax.inject.Inject;
+
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -16,8 +19,12 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
@@ -42,6 +49,12 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private HiscoreClient hiscoreClient;
 
+	@Inject
+	private ClientToolbar clientToolbar;
+
+	@Inject
+	private CARoadmapPanel caRoadmapPanel;
+
 	private CSVHandler csvHandler;
 	private FirebaseDatabase firestore;
 
@@ -53,10 +66,26 @@ public class CARoadmapPlugin extends Plugin
 	private ExecutorService firestoreExecutor;
 	private ExecutorService csvHandlerExecutor;
 
-
 	@Override
 	protected void startUp() throws Exception
 	{
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
+		if (icon == null) {
+			System.err.println("Could not load icon");
+		}
+		try {
+			NavigationButton navButton = NavigationButton.builder()
+					.tooltip("CA Roadmap")
+					.icon(icon)
+					.panel(caRoadmapPanel)
+					.build();
+
+			clientToolbar.addNavigation(navButton);
+		}
+		catch (Exception e) {
+			System.err.println("There was an error in setting up the nav button: " + e.getMessage());
+		}
+
 		firestoreExecutor = Executors.newSingleThreadExecutor(r -> {
 			Thread t = Executors.defaultThreadFactory().newThread(r);
 			t.setDaemon(true);
