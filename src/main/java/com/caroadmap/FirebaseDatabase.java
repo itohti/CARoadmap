@@ -36,7 +36,6 @@ public class FirebaseDatabase {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
-
             FirebaseApp.initializeApp(options);
             try {
                 this.db = FirestoreClient.getFirestore();
