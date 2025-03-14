@@ -22,6 +22,7 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import org.checkerframework.checker.units.qual.C;
 
 
 import java.awt.image.BufferedImage;
@@ -52,8 +53,9 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private ClientToolbar clientToolbar;
 
-	@Inject
-	private CARoadmapPanel caRoadmapPanel;
+//	@Inject
+//	private CARoadmapPanel caRoadmapPanel;
+	private NavigationButton navButton;
 
 	private CSVHandler csvHandler;
 	private FirebaseDatabase firestore;
@@ -69,12 +71,13 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
+		CARoadmapPanel caRoadmapPanel = new CARoadmapPanel();
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			System.err.println("Could not load icon");
 		}
 		try {
-			NavigationButton navButton = NavigationButton.builder()
+			navButton = NavigationButton.builder()
 					.tooltip("CA Roadmap")
 					.icon(icon)
 					.panel(caRoadmapPanel)
@@ -121,6 +124,7 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void shutDown() throws Exception
 	{
+		clientToolbar.removeNavigation(navButton);
 		firestoreExecutor.shutdown();
 		csvHandlerExecutor.shutdown();
 	}
