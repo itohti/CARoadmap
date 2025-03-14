@@ -60,11 +60,10 @@ public class FirebaseDatabase {
 
     /**
      * Adds a task into the Firestore database.
-     * @param username the username.
      * @param task the task that needs to be added.
      * @return returns the result of the operation.
      */
-    public boolean addTaskToBatch(String username, Task task) {
+    public boolean addTaskToBatch(Task task) {
         // first format task into a Map<String, Object> object.
         Map<String, Object> taskObj = task.formatTask();
         try {

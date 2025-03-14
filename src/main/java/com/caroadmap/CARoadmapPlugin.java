@@ -196,7 +196,7 @@ public class CARoadmapPlugin extends Plugin
 				Task taskObject = new Task(boss, name, description, type, tier, done);
 				// add to Firestore
 				firestoreExecutor.submit(() -> {
-					boolean result = firestore.addTaskToBatch(client.getLauncherDisplayName(), taskObject);
+					boolean result = firestore.addTaskToBatch(taskObject);
 					if (!result) {
 						System.err.println("Could not add task to batch");
 					}
