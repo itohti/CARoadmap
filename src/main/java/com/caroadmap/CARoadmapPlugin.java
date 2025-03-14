@@ -104,9 +104,7 @@ public class CARoadmapPlugin extends Plugin
 		});
 
 		firestoreExecutor.submit(() -> {
-			System.out.println("Initializing FirebaseDatabase");
 			this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
-			System.out.println("Firebase initialization completed successfully");
 		});
 
 		clientThread.invoke(() -> {
@@ -125,6 +123,7 @@ public class CARoadmapPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		clientToolbar.removeNavigation(navButton);
+		firestore.cleanUp();
 		firestoreExecutor.shutdown();
 		csvHandlerExecutor.shutdown();
 	}

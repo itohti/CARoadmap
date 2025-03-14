@@ -23,6 +23,7 @@ public class FirebaseDatabase {
     private WriteBatch currentBatch;
     private CollectionReference userTasks;
     private int batchCount;
+    private static final int BATCH_LIMIT = 500;
     /**
      * Constructor that sets up Admin SDK access to firebase project.
      */
@@ -59,7 +60,7 @@ public class FirebaseDatabase {
 
     /**
      * Adds a task into the Firestore database.
-     * @param collection the collection name.
+     * @param username the username.
      * @param task the task that needs to be added.
      * @return returns the result of the operation.
      */
@@ -70,6 +71,10 @@ public class FirebaseDatabase {
             DocumentReference docRef = userTasks.document(task.getTaskName());
             currentBatch.set(docRef, task.formatTask());
             batchCount++;
+
+            if (batchCount >= BATCH_LIMIT) {
+                commitBatch();
+            }
 
             return true;
         }
@@ -101,6 +106,12 @@ public class FirebaseDatabase {
         catch (InterruptedException | ExecutionException e) {
             System.err.println("Could not get future of batch.commit()...");
             return false;
+        }
+    }
+
+    public void cleanUp() {
+        for (FirebaseApp app: FirebaseApp.getApps()) {
+            app.delete();
         }
     }
 }
