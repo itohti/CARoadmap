@@ -237,11 +237,16 @@ public class CARoadmapPlugin extends Plugin
 			HiscoreResult result = hiscoreClient.lookup(displayName);
 			boolean isBossList = false;
 			for (HiscoreSkill skill: result.getSkills().keySet()) {
-				// pretty dumb solution
 				if (isBossList) {
 					bossList.put(skill.getName(), result.getSkill(skill).getLevel());
+					firestoreExecutor.submit(() -> {
+						boolean wrote = firestore.addKcToBatch(skill.getName(), result.getSkill(skill).getLevel());
+						if (!wrote) {
+							log.error(String.format("Could not write %s in firestore", skill.getName()));
+						}
+					});
 				}
-				// assuming Abyssal Sire will be the start of the boss list. Come back to this.
+
 				else if (skill.getName().equals("Collections Logged")) {
 					isBossList = true;
 				}
