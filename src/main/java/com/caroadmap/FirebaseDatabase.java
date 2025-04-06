@@ -23,6 +23,7 @@ public class FirebaseDatabase {
     private Firestore db;
     private WriteBatch currentBatch;
     private CollectionReference userTasks;
+    private CollectionReference userBossKc;
     private int batchCount;
     private static final int BATCH_LIMIT = 500;
     /**
@@ -42,6 +43,7 @@ public class FirebaseDatabase {
             try {
                 this.db = FirestoreClient.getFirestore();
                 userTasks = db.collection("users").document(username).collection("tasks");
+                userBossKc = db.collection("users").document(username).collection("boss_kc");
                 this.currentBatch = db.batch();
             }
             catch (Exception e) {
@@ -60,9 +62,35 @@ public class FirebaseDatabase {
     }
 
     /**
+     * Adds a boss kc to the Firestore database.
+     * @param bossName is the boss name.
+     * @param kc is the kill count of the boss
+     * @return true if it was successful.
+     */
+    public boolean addKcToBatch(String bossName, int kc) {
+        Map<String, Integer> bossKc = new HashMap<>();
+        bossKc.put(bossName, kc);
+        try {
+            DocumentReference docRef = userBossKc.document(bossName);
+            currentBatch.set(docRef, bossKc);
+            batchCount++;
+
+            if (batchCount >= BATCH_LIMIT) {
+                commitBatch();
+            }
+
+            return true;
+        }
+        catch (Exception e) {
+            System.err.println("Could not upload boss into Firestore: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Adds a task into the Firestore database.
      * @param task the task that needs to be added.
-     * @return returns the result of the operation.
+     * @return true if it was successful.
      */
     public boolean addTaskToBatch(Task task) {
         // first format task into a Map<String, Object> object.
