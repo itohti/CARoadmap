@@ -11,6 +11,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -65,10 +66,11 @@ public class FirebaseDatabase {
      */
     public boolean addTaskToBatch(Task task) {
         // first format task into a Map<String, Object> object.
-        Map<String, Object> taskObj = task.formatTask();
         try {
             DocumentReference docRef = userTasks.document(task.getTaskName());
-            currentBatch.set(docRef, task.formatTask());
+            Map<String, Object> userTaskObj = new HashMap<>();
+            userTaskObj.put("Done", task.isDone());
+            currentBatch.set(docRef, userTaskObj);
             batchCount++;
 
             if (batchCount >= BATCH_LIMIT) {
