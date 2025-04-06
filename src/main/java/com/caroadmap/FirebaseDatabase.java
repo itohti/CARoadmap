@@ -43,7 +43,7 @@ public class FirebaseDatabase {
             try {
                 this.db = FirestoreClient.getFirestore();
                 userTasks = db.collection("users").document(username).collection("tasks");
-                userBossKc = db.collection("users").document(username).collection("boss kc");
+                userBossKc = db.collection("users").document(username).collection("boss_kc");
                 this.currentBatch = db.batch();
             }
             catch (Exception e) {
