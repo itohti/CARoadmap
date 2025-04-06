@@ -82,7 +82,7 @@ public class FirebaseDatabase {
             return true;
         }
         catch (Exception e) {
-            System.err.println("Could not upload task into Firestore: " + e.getMessage());
+            System.err.println("Could not upload boss into Firestore: " + e.getMessage());
             return false;
         }
     }
