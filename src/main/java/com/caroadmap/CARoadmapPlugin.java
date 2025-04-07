@@ -108,7 +108,7 @@ public class CARoadmapPlugin extends Plugin
 		});
 
 		clientThread.invoke(() -> {
-			populateBossList(client.getLauncherDisplayName());
+			fetchAndStorePlayerData(client.getLauncherDisplayName());
 			populateBossToRaid();
 
 			csvHandlerExecutor.submit(() -> {
@@ -229,7 +229,7 @@ public class CARoadmapPlugin extends Plugin
 		});
 	}
 
-	public void populateBossList(String displayName) {
+	public void fetchAndStorePlayerData(String displayName) {
 		if (displayName == null) {
 			return;
 		}
@@ -240,7 +240,7 @@ public class CARoadmapPlugin extends Plugin
 				if (isBossList) {
 					bossList.put(skill.getName(), result.getSkill(skill).getLevel());
 					firestoreExecutor.submit(() -> {
-						boolean wrote = firestore.addKcToBatch(skill.getName(), result.getSkill(skill).getLevel());
+						boolean wrote = firestore.addSkillToBatch(skill.getName(), result.getSkill(skill).getLevel(), true);
 						if (!wrote) {
 							log.error(String.format("Could not write %s in firestore", skill.getName()));
 						}
@@ -251,6 +251,16 @@ public class CARoadmapPlugin extends Plugin
 					isBossList = true;
 				}
 			}
+
+			// adding skills in firestore
+			firestoreExecutor.submit(() -> {
+				firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel(), false);
+				firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel(), false);
+				firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel(), false);
+				firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel(), false);
+				firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel(), false);
+				firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel(), false);
+			});
 		}
 		catch (IOException e) {
 			log.error("Could not fetch hiscores for user: " + displayName);
