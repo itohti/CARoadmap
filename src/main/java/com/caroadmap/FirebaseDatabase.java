@@ -67,6 +67,7 @@ public class FirebaseDatabase {
      * Adds a skill to the Firestore database.
      * @param skillName is the skill name.
      * @param level is the level that is associated with the skill.
+     * @param isBoss is a flag to check if the skill is a boss or not.
      * @return true if it was successful.
      */
     public boolean addSkillToBatch(String skillName, int level, boolean isBoss) {
