@@ -24,6 +24,7 @@ public class FirebaseDatabase {
     private WriteBatch currentBatch;
     private CollectionReference userTasks;
     private CollectionReference userBossKc;
+    private CollectionReference userStats;
     private int batchCount;
     private static final int BATCH_LIMIT = 500;
     /**
@@ -44,6 +45,7 @@ public class FirebaseDatabase {
                 this.db = FirestoreClient.getFirestore();
                 userTasks = db.collection("users").document(username).collection("tasks");
                 userBossKc = db.collection("users").document(username).collection("boss_kc");
+                userStats = db.collection("users").document(username).collection("combat_stats");
                 this.currentBatch = db.batch();
             }
             catch (Exception e) {
@@ -62,17 +64,24 @@ public class FirebaseDatabase {
     }
 
     /**
-     * Adds a boss kc to the Firestore database.
-     * @param bossName is the boss name.
-     * @param kc is the kill count of the boss
+     * Adds a skill to the Firestore database.
+     * @param skillName is the skill name.
+     * @param level is the level that is associated with the skill.
+     * @param isBoss is a flag to check if the skill is a boss or not.
      * @return true if it was successful.
      */
-    public boolean addKcToBatch(String bossName, int kc) {
-        Map<String, Integer> bossKc = new HashMap<>();
-        bossKc.put(bossName, kc);
+    public boolean addSkillToBatch(String skillName, int level, boolean isBoss) {
+        Map<String, Integer> skillMap = new HashMap<>();
+        skillMap.put(skillName, level);
         try {
-            DocumentReference docRef = userBossKc.document(bossName);
-            currentBatch.set(docRef, bossKc);
+            DocumentReference docRef;
+            if (isBoss) {
+                docRef = userBossKc.document(skillName);
+            }
+            else {
+                docRef = userStats.document(skillName);
+            }
+            currentBatch.set(docRef, skillMap);
             batchCount++;
 
             if (batchCount >= BATCH_LIMIT) {
