@@ -46,6 +46,9 @@ public class FirebaseDatabase {
                 userTasks = db.collection("users").document(username).collection("tasks");
                 userBossInfo = db.collection("users").document(username).collection("boss_info");
                 userStats = db.collection("users").document(username).collection("combat_stats");
+                Map<String, String> displayName = new HashMap<>();
+                displayName.put("display_name", username);
+                db.collection("users").document(username).set(displayName);
                 this.currentBatch = db.batch();
             }
             catch (Exception e) {
