@@ -16,7 +16,7 @@ public class Boss {
 
     public Map<String, Object> formatBoss() {
         Map<String, Object> ret = new HashMap<>();
-        ret.put("Boss", boss);
+        ret.put("boss", boss);
         ret.put("kc", kc);
         ret.put("ehb", ehb);
 

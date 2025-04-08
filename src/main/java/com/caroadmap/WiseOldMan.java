@@ -26,7 +26,7 @@ public class WiseOldMan {
      * This will fetch the boss info from wise old man.
      * @return returns an array of objects but if it fails it will not throw an error rather it will just return an empty array.
      */
-    public Object[] fetchBossInfo() {
+    public Boss[] fetchBossInfo() {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.wiseoldman.net/v2/players/" + displayName))
                 .GET()
@@ -45,15 +45,15 @@ public class WiseOldMan {
                     formattedString = formattedStringBuilder.toString().trim();
                     bossList.add(new Boss(formattedString, boss.kills, boss.ehb));
                 }
-                return bossList.toArray();
+                return bossList.toArray(new Boss[0]);
             }
             else {
-                return bossList.toArray();
+                return bossList.toArray(new Boss[0]);
             }
         }
         catch (IOException | InterruptedException e) {
             System.err.println("Could not fetch wise old man data: " + e);
-            return bossList.toArray();
+            return bossList.toArray(new Boss[0]);
         }
     }
 

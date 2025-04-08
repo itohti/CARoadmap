@@ -145,9 +145,9 @@ public class CARoadmapPlugin extends Plugin
 		// this function gets called every GAME tick.
 		if (getData) {
 			firestoreExecutor.submit(() -> {
-				Object[] wiseOldManData = wiseOldMan.fetchBossInfo();
-				for (Object boss : wiseOldManData) {
-					firestore.addBossToBatch((Boss)boss);
+				Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
+				for (Boss boss : wiseOldManData) {
+					firestore.addBossToBatch(boss);
 				}
 			});
 			populateData();
