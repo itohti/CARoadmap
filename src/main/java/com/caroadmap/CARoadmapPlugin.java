@@ -22,7 +22,6 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-import org.checkerframework.checker.units.qual.C;
 
 
 import java.awt.image.BufferedImage;
@@ -59,6 +58,7 @@ public class CARoadmapPlugin extends Plugin
 
 	private CSVHandler csvHandler;
 	private FirebaseDatabase firestore;
+	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
 
@@ -103,6 +103,8 @@ public class CARoadmapPlugin extends Plugin
 			return t;
 		});
 
+		this.wiseOldMan = new WiseOldMan(client.getLauncherDisplayName());
+
 		firestoreExecutor.submit(() -> {
 			this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
 		});
@@ -141,6 +143,12 @@ public class CARoadmapPlugin extends Plugin
 	public void onGameTick(GameTick event) {
 		// this function gets called every GAME tick.
 		if (getData) {
+			firestoreExecutor.submit(() -> {
+				Object[] wiseOldManData = wiseOldMan.fetchBossInfo();
+				for (Object boss : wiseOldManData) {
+					firestore.addBossToBatch((Boss)boss);
+				}
+			});
 			populateData();
 			getData = false;
 		}
@@ -239,12 +247,6 @@ public class CARoadmapPlugin extends Plugin
 			for (HiscoreSkill skill: result.getSkills().keySet()) {
 				if (isBossList) {
 					bossList.put(skill.getName(), result.getSkill(skill).getLevel());
-					firestoreExecutor.submit(() -> {
-						boolean wrote = firestore.addSkillToBatch(skill.getName(), result.getSkill(skill).getLevel(), true);
-						if (!wrote) {
-							log.error(String.format("Could not write %s in firestore", skill.getName()));
-						}
-					});
 				}
 
 				else if (skill.getName().equals("Collections Logged")) {
@@ -254,12 +256,12 @@ public class CARoadmapPlugin extends Plugin
 
 			// adding skills in firestore
 			firestoreExecutor.submit(() -> {
-				firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel(), false);
-				firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel(), false);
-				firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel(), false);
-				firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel(), false);
-				firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel(), false);
-				firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel(), false);
+				firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
+				firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
+				firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel());
+				firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
+				firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
+				firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
 			});
 		}
 		catch (IOException e) {
