@@ -23,7 +23,7 @@ public class FirebaseDatabase {
     private Firestore db;
     private WriteBatch currentBatch;
     private CollectionReference userTasks;
-    private CollectionReference userBossKc;
+    private CollectionReference userBossInfo;
     private CollectionReference userStats;
     private int batchCount;
     private static final int BATCH_LIMIT = 500;
@@ -44,7 +44,7 @@ public class FirebaseDatabase {
             try {
                 this.db = FirestoreClient.getFirestore();
                 userTasks = db.collection("users").document(username).collection("tasks");
-                userBossKc = db.collection("users").document(username).collection("boss_kc");
+                userBossInfo = db.collection("users").document(username).collection("boss_info");
                 userStats = db.collection("users").document(username).collection("combat_stats");
                 this.currentBatch = db.batch();
             }
@@ -64,23 +64,39 @@ public class FirebaseDatabase {
     }
 
     /**
+     * Add boss info to firestore
+     * @param boss is the boss object that will be added to firestore
+     * @return true if the operation succeeds.
+     */
+    public boolean addBossToBatch(Boss boss) {
+        try {
+            DocumentReference docRef = userBossInfo.document(boss.getBossName());
+            currentBatch.set(docRef, boss.formatBoss());
+            batchCount++;
+
+            if (batchCount >= BATCH_LIMIT) {
+                commitBatch();
+            }
+
+            return true;
+        }
+        catch (Exception e) {
+            System.err.println("Could not add boss info in firestore: " + e);
+            return false;
+        }
+    }
+
+    /**
      * Adds a skill to the Firestore database.
      * @param skillName is the skill name.
      * @param level is the level that is associated with the skill.
-     * @param isBoss is a flag to check if the skill is a boss or not.
      * @return true if it was successful.
      */
-    public boolean addSkillToBatch(String skillName, int level, boolean isBoss) {
+    public boolean addSkillToBatch(String skillName, int level) {
         Map<String, Integer> skillMap = new HashMap<>();
         skillMap.put(skillName, level);
         try {
-            DocumentReference docRef;
-            if (isBoss) {
-                docRef = userBossKc.document(skillName);
-            }
-            else {
-                docRef = userStats.document(skillName);
-            }
+            DocumentReference docRef = userStats.document(skillName);
             currentBatch.set(docRef, skillMap);
             batchCount++;
 
