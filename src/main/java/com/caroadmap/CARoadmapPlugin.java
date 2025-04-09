@@ -263,6 +263,7 @@ public class CARoadmapPlugin extends Plugin
 				firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
 				firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
 				firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
+				firestore.addSkillToBatch("Magic", result.getSkills().get(HiscoreSkill.MAGIC).getLevel());
 			});
 		}
 		catch (IOException e) {
