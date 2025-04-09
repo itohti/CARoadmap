@@ -7,6 +7,7 @@ public class Boss {
     private String boss;
     private int kc;
     private double ehb;
+    private double killTime;
 
     public Boss (String boss, int kc, double ehb) {
         this.boss = boss;
@@ -14,12 +15,16 @@ public class Boss {
         this.ehb = ehb;
     }
 
+    public void setKillTime (Double killTime) {
+        this.killTime = killTime;
+    }
+
     public Map<String, Object> formatBoss() {
         Map<String, Object> ret = new HashMap<>();
         ret.put("boss", boss);
         ret.put("kc", kc);
         ret.put("ehb", ehb);
-
+        ret.put("pb", killTime);
         return ret;
     }
 

@@ -43,6 +43,7 @@ public class WiseOldMan {
                     StringBuilder formattedStringBuilder = getStringBuilder(formattedString);
 
                     formattedString = formattedStringBuilder.toString().trim();
+                    // temporary value for killTime
                     bossList.add(new Boss(formattedString, boss.kills, boss.ehb));
                 }
                 return bossList.toArray(new Boss[0]);

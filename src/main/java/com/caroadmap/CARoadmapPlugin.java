@@ -1,6 +1,8 @@
 package com.caroadmap;
 
 import com.caroadmap.ui.CARoadmapPanel;
+import net.runelite.api.widgets.ComponentID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
@@ -28,6 +30,8 @@ import org.checkerframework.checker.units.qual.C;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -52,6 +56,9 @@ public class CARoadmapPlugin extends Plugin
 
 	@Inject
 	private ClientToolbar clientToolbar;
+
+	@Inject
+	private ConfigManager configManager;
 
 //	@Inject
 //	private CARoadmapPanel caRoadmapPanel;
@@ -147,6 +154,9 @@ public class CARoadmapPlugin extends Plugin
 			firestoreExecutor.submit(() -> {
 				Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
 				for (Boss boss : wiseOldManData) {
+					// before we send it to firestore get pb.
+					Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBossName().toLowerCase(), double.class);
+                    boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
 					firestore.addBossToBatch(boss);
 				}
 			});
@@ -219,7 +229,6 @@ public class CARoadmapPlugin extends Plugin
 						// this would typically happen if a player has completed a task.
 						if (!taskObject.equals(readTask)) {
 							csvHandler.updateTask(taskObject);
-							log.info("Task in csv and game task did not match updating...");
 						}
 					} else {
 						// otherwise if we did not find the task in the csv file create a entry in the csv file.
