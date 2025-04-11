@@ -111,8 +111,7 @@ public class FirebaseDatabase {
             ObjectMapper mapper = new ObjectMapper();
             return mapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {
-            System.err.println("Could not convert map to string.");
-            return "";
+            throw new RuntimeException("Failed to convert map to JSON string.", e);
         }
     }
 }
