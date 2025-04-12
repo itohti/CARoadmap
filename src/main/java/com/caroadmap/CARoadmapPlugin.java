@@ -110,23 +110,6 @@ public class CARoadmapPlugin extends Plugin
 			t.setName("csvThread");
 			return t;
 		});
-
-		this.wiseOldMan = new WiseOldMan(client.getLauncherDisplayName());
-
-		firestoreExecutor.submit(() -> {
-			this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
-		});
-
-		clientThread.invoke(() -> {
-			fetchAndStorePlayerData(client.getLauncherDisplayName());
-			populateBossToRaid();
-
-			csvHandlerExecutor.submit(() -> {
-				this.csvHandler = new CSVHandler();
-			});
-
-			return true;
-		});
 	}
 
 	@Override
@@ -150,6 +133,18 @@ public class CARoadmapPlugin extends Plugin
 	public void onGameTick(GameTick event) {
 		// this function gets called every GAME tick.
 		if (getData) {
+			this.wiseOldMan = new WiseOldMan(client.getLauncherDisplayName());
+
+			firestoreExecutor.submit(() -> {
+				this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
+				fetchAndStorePlayerData(client.getLauncherDisplayName());
+				populateBossToRaid();
+			});
+
+			csvHandlerExecutor.submit(() -> {
+				this.csvHandler = new CSVHandler();
+			});
+
 			firestoreExecutor.submit(() -> {
 				Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
 				for (Boss boss : wiseOldManData) {
@@ -263,15 +258,14 @@ public class CARoadmapPlugin extends Plugin
 			}
 
 			// adding skills in firestore
-			firestoreExecutor.submit(() -> {
-				firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
-				firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
-				firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel());
-				firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
-				firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
-				firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
-				firestore.addSkillToBatch("Magic", result.getSkills().get(HiscoreSkill.MAGIC).getLevel());
-			});
+			firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
+			firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
+			firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel());
+			firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
+			firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
+			firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
+			firestore.addSkillToBatch("Magic", result.getSkills().get(HiscoreSkill.MAGIC).getLevel());
+
 		}
 		catch (IOException e) {
 			log.error("Could not fetch hiscores for user: " + displayName);
