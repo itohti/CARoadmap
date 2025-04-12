@@ -29,11 +29,8 @@ import org.checkerframework.checker.units.qual.C;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.Map;
 import java.util.concurrent.Executors;
 
 @Slf4j
@@ -111,21 +108,8 @@ public class CARoadmapPlugin extends Plugin
 			return t;
 		});
 
-		this.wiseOldMan = new WiseOldMan(client.getLauncherDisplayName());
-
-		firestoreExecutor.submit(() -> {
-			this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
-		});
-
-		clientThread.invoke(() -> {
-			fetchAndStorePlayerData(client.getLauncherDisplayName());
-			populateBossToRaid();
-
-			csvHandlerExecutor.submit(() -> {
-				this.csvHandler = new CSVHandler();
-			});
-
-			return true;
+		csvHandlerExecutor.submit(() -> {
+			this.csvHandler = new CSVHandler();
 		});
 	}
 
@@ -150,15 +134,23 @@ public class CARoadmapPlugin extends Plugin
 	public void onGameTick(GameTick event) {
 		// this function gets called every GAME tick.
 		if (getData) {
+			final String username = getUsername();
+			this.wiseOldMan = new WiseOldMan(username);
+
 			firestoreExecutor.submit(() -> {
+				this.firestore = new FirebaseDatabase(username);
+				fetchAndStorePlayerData(username);
+				populateBossToRaid();
+
 				Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
 				for (Boss boss : wiseOldManData) {
 					// before we send it to firestore get pb.
 					Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBossName().toLowerCase(), double.class);
-                    boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
+					boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
 					firestore.addBossToBatch(boss);
 				}
 			});
+
 			populateData();
 			getData = false;
 		}
@@ -263,15 +255,14 @@ public class CARoadmapPlugin extends Plugin
 			}
 
 			// adding skills in firestore
-			firestoreExecutor.submit(() -> {
-				firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
-				firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
-				firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel());
-				firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
-				firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
-				firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
-				firestore.addSkillToBatch("Magic", result.getSkills().get(HiscoreSkill.MAGIC).getLevel());
-			});
+			firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
+			firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
+			firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel());
+			firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
+			firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
+			firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
+			firestore.addSkillToBatch("Magic", result.getSkills().get(HiscoreSkill.MAGIC).getLevel());
+
 		}
 		catch (IOException e) {
 			log.error("Could not fetch hiscores for user: " + displayName);
@@ -309,6 +300,20 @@ public class CARoadmapPlugin extends Plugin
 		bossToRaid.put("Het", "Tombs of Amascut");
 		bossToRaid.put("Apmeken", "Tombs of Amascut");
 		bossToRaid.put("Crondis", "Tombs of Amascut");
+	}
+
+	private String getUsername() {
+		String username = client.getLauncherDisplayName();
+
+		if (username == null) {
+			if (client.getLocalPlayer() != null) {
+				username = client.getLocalPlayer().getName();
+			} else {
+				log.warn("Both launcher display name and local player are null");
+			}
+		}
+
+		return username;
 	}
 
 	@Provides

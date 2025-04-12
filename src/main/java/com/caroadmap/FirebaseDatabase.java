@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -90,8 +92,10 @@ public class FirebaseDatabase {
 
     public boolean sendData() {
         String jsonBody = convertMapToString(batch);
+        String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("http://osrs.izdartohti.org:8080/playerdata?username=%s", username)))
+                .uri(URI.create(String.format("https://osrs.izdartohti.org/playerdata?username=%s", encodedUsername)))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
