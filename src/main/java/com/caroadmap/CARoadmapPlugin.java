@@ -133,7 +133,6 @@ public class CARoadmapPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		clientToolbar.removeNavigation(navButton);
-		firestore.cleanUp();
 		firestoreExecutor.shutdown();
 		csvHandlerExecutor.shutdown();
 	}
@@ -238,11 +237,10 @@ public class CARoadmapPlugin extends Plugin
 				});
 			}
 		}
-
 		firestoreExecutor.submit(() -> {
-			boolean result = firestore.commitBatch();
+			boolean result = firestore.sendData();
 			if (!result) {
-				System.err.println("Could not commit batch to firestore.");
+				log.error("Did not upload player data to database");
 			}
 		});
 	}
