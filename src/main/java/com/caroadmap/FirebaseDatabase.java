@@ -91,7 +91,7 @@ public class FirebaseDatabase {
     public boolean sendData() {
         String jsonBody = convertMapToString(batch);
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("http://osrs.izdartohti.org:8080/playerdata?username=%s", username)))
+                .uri(URI.create(String.format("https://osrs.izdartohti.org/playerdata?username=%s", username)))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
