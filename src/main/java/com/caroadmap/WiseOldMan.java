@@ -1,10 +1,12 @@
 package com.caroadmap;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,8 +29,9 @@ public class WiseOldMan {
      * @return returns an array of objects but if it fails it will not throw an error rather it will just return an empty array.
      */
     public Boss[] fetchBossInfo() {
+        String encodedUsername = URLEncoder.encode(displayName, StandardCharsets.UTF_8).replace("+", "%20");
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.wiseoldman.net/v2/players/" + displayName))
+                .uri(URI.create("https://api.wiseoldman.net/v2/players/" + encodedUsername))
                 .GET()
                 .build();
         ArrayList<Boss> bossList = new ArrayList<>();
@@ -43,7 +46,6 @@ public class WiseOldMan {
                     StringBuilder formattedStringBuilder = getStringBuilder(formattedString);
 
                     formattedString = formattedStringBuilder.toString().trim();
-                    // temporary value for killTime
                     bossList.add(new Boss(formattedString, boss.kills, boss.ehb));
                 }
                 return bossList.toArray(new Boss[0]);

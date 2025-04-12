@@ -29,11 +29,8 @@ import org.checkerframework.checker.units.qual.C;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.Map;
 import java.util.concurrent.Executors;
 
 @Slf4j
@@ -110,6 +107,10 @@ public class CARoadmapPlugin extends Plugin
 			t.setName("csvThread");
 			return t;
 		});
+
+		csvHandlerExecutor.submit(() -> {
+			this.csvHandler = new CSVHandler();
+		});
 	}
 
 	@Override
@@ -133,27 +134,23 @@ public class CARoadmapPlugin extends Plugin
 	public void onGameTick(GameTick event) {
 		// this function gets called every GAME tick.
 		if (getData) {
-			this.wiseOldMan = new WiseOldMan(client.getLauncherDisplayName());
+			final String username = getUsername();
+			this.wiseOldMan = new WiseOldMan(username);
 
 			firestoreExecutor.submit(() -> {
-				this.firestore = new FirebaseDatabase(client.getLauncherDisplayName());
-				fetchAndStorePlayerData(client.getLauncherDisplayName());
+				this.firestore = new FirebaseDatabase(username);
+				fetchAndStorePlayerData(username);
 				populateBossToRaid();
-			});
 
-			csvHandlerExecutor.submit(() -> {
-				this.csvHandler = new CSVHandler();
-			});
-
-			firestoreExecutor.submit(() -> {
 				Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
 				for (Boss boss : wiseOldManData) {
 					// before we send it to firestore get pb.
 					Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBossName().toLowerCase(), double.class);
-                    boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
+					boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
 					firestore.addBossToBatch(boss);
 				}
 			});
+
 			populateData();
 			getData = false;
 		}
@@ -303,6 +300,20 @@ public class CARoadmapPlugin extends Plugin
 		bossToRaid.put("Het", "Tombs of Amascut");
 		bossToRaid.put("Apmeken", "Tombs of Amascut");
 		bossToRaid.put("Crondis", "Tombs of Amascut");
+	}
+
+	private String getUsername() {
+		String username = client.getLauncherDisplayName();
+
+		if (username == null) {
+			if (client.getLocalPlayer() != null) {
+				username = client.getLocalPlayer().getName();
+			} else {
+				log.warn("Both launcher display name and local player are null");
+			}
+		}
+
+		return username;
 	}
 
 	@Provides
