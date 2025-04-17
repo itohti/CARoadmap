@@ -1,9 +1,6 @@
 package com.caroadmap;
 
-import com.caroadmap.dto.GetRecommendationsResponse;
-import com.caroadmap.dto.RecommendedTaskDTO;
 import com.caroadmap.ui.CARoadmapPanel;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
@@ -28,12 +25,6 @@ import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
