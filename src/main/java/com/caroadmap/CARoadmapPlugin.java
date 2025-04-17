@@ -5,6 +5,7 @@ import com.caroadmap.api.PlayerDataBatcher;
 import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.ui.CARoadmapPanel;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
@@ -12,6 +13,7 @@ import net.runelite.client.hiscore.HiscoreSkill;
 import com.google.inject.Provides;
 
 import javax.inject.Inject;
+import javax.swing.*;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -60,6 +62,10 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private CARoadmapServer server;
 
+	@Inject
+	private SpriteManager spriteManager;
+
+	private CARoadmapPanel caRoadmapPanel;
 	private NavigationButton navButton;
 
 	private CSVHandler csvHandler;
@@ -78,7 +84,7 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		CARoadmapPanel caRoadmapPanel = new CARoadmapPanel();
+		this.caRoadmapPanel = new CARoadmapPanel(recommendTasks, spriteManager);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			log.error("Could not load icon");
@@ -170,10 +176,28 @@ public class CARoadmapPlugin extends Plugin
 
 			ArrayList<Task> recommendedTasks = recommendTasks.getRecommendedTasks();
 			for (Task task : recommendedTasks) {
-				csvHandler.createTask(task);
+				Task savedTask = csvHandler.getTask(task.getTaskName());
+				if (savedTask != null) {
+					if (!savedTask.equals(task)) {
+						csvHandler.updateTask(task);
+					}
+				}
+				else {
+					csvHandler.createTask(task);
+				}
 			}
 		});
 
+		csvHandlerExecutor.submit(() -> {
+			recommendTasks.getRecommendations(username, 1014);
+
+			SwingUtilities.invokeLater(() -> {
+				if (caRoadmapPanel != null) {
+					caRoadmapPanel.setUsername(username);
+					caRoadmapPanel.refresh(username);
+				}
+			});
+		});
 	}
 
 	private void fetchAndStorePlayerTasks() {

@@ -1,18 +1,71 @@
 package com.caroadmap.ui;
 
+import com.caroadmap.CARoadmapPlugin;
 import com.caroadmap.data.Task;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
+import net.runelite.client.hiscore.HiscoreClient;
+import net.runelite.client.hiscore.HiscoreResult;
+import net.runelite.client.hiscore.HiscoreSkill;
+import net.runelite.client.util.ImageUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.Map;
 
+import static net.runelite.api.SpriteID.TAB_COMBAT;
+
+@Slf4j
 public class DisplayTask extends JPanel {
     private final JPanel detailPanel;
     private boolean expanded = false;
+    public static final Map<Integer, String> TIER_ICON_MAP = new HashMap<>();
+    private static final Map<String, HiscoreSkill> BOSS_TO_SKILL_MAP = new HashMap<>();
 
-    public DisplayTask(Task task) {
+    static {
+        BOSS_TO_SKILL_MAP.put("Theatre of Blood: Entry Mode", HiscoreSkill.THEATRE_OF_BLOOD);
+    }
+
+    static {
+        TIER_ICON_MAP.put(1, "/easy_tier.png");
+        TIER_ICON_MAP.put(2, "/medium_tier.png");
+        TIER_ICON_MAP.put(3, "/hard_tier.png");
+        TIER_ICON_MAP.put(4, "/elite_tier.png");
+        TIER_ICON_MAP.put(5, "/master_tier.png");
+        TIER_ICON_MAP.put(6, "/grandmaster_tier.png");
+    }
+
+
+    public DisplayTask(Task task, SpriteManager spriteManager) {
+        // this might not work for things like TOB (entry mode) so we have to map these.
+        JLabel icon = new JLabel();
+        try {
+            HiscoreSkill skill = BOSS_TO_SKILL_MAP.get(task.getBoss());
+            if (skill == null) {
+                skill = HiscoreSkill.valueOf(task.getBoss().toUpperCase()
+                        .replace(" ", "_")
+                        .replace("'", "")
+                        .replace(":", ""));
+            }
+            icon.setToolTipText(task.getBoss());
+            // Credit goes to runelite Hiscore. This code is not mine.
+            // https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/plugins/hiscore/HiscorePanel.java#L336
+            spriteManager.getSpriteAsync(skill == null ? TAB_COMBAT : skill.getSpriteId(), 0, (sprite) ->
+                    SwingUtilities.invokeLater(() ->
+                    {
+                        final BufferedImage scaledSprite = ImageUtil.resizeImage(ImageUtil.resizeCanvas(sprite, 25, 25), 20, 20);
+                        icon.setIcon(new ImageIcon(scaledSprite));
+                    }));
+
+        }
+        catch (Exception e) {
+            log.error("Could not get hiscore skill: ", e);
+        }
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBackground(ColorScheme.DARKER_GRAY_COLOR);
         setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -24,9 +77,10 @@ public class DisplayTask extends JPanel {
         headerPanel.setBorder(BorderFactory.createEmptyBorder());
 
         // create components
-        JLabel bossLabel = new JLabel(task.getBoss());
         JLabel taskLabel = new JLabel(task.getTaskName());
-        JLabel taskTier = new JLabel("+" + task.getTier());
+        JLabel taskTier = new JLabel();
+        taskTier.setIcon(new ImageIcon(getTierIcon(task.getTier())));
+        taskTier.setToolTipText("+" + task.getTier());
 
         // Create detail panel that will be shown/hidden
         detailPanel = new JPanel();
@@ -62,7 +116,7 @@ public class DisplayTask extends JPanel {
         detailPanel.setVisible(false);
 
         // Add components to main content
-        headerPanel.add(bossLabel);
+        headerPanel.add(icon);
         headerPanel.add(taskLabel);
         headerPanel.add(taskTier);
 
@@ -105,5 +159,10 @@ public class DisplayTask extends JPanel {
         if (parent != null) {
             parent.revalidate();
         }
+    }
+
+    private BufferedImage getTierIcon(int tier) {
+        BufferedImage icon = ImageUtil.loadImageResource(CARoadmapPlugin.class, TIER_ICON_MAP.get(tier));
+        return ImageUtil.resizeImage(ImageUtil.resizeCanvas(icon, 25, 25), 20, 20);
     }
 }

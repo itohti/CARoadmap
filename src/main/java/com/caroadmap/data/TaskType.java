@@ -1,5 +1,7 @@
 package com.caroadmap.data;
 
+import java.awt.image.BufferedImage;
+
 /**
  * 1 -> Stamina, 2 -> Perfection, 3 -> kill count, 4 -> Mechanical, 5 -> Restriction, 6 -> Speed
  */
