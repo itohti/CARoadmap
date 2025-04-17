@@ -1,5 +1,8 @@
 package com.caroadmap;
 
+import com.caroadmap.api.CARoadmapServer;
+import com.caroadmap.api.PlayerDataBatcher;
+import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.ui.CARoadmapPanel;
 import net.runelite.client.hiscore.HiscoreClient;
@@ -54,16 +57,18 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
-//	@Inject
-//	private CARoadmapPanel caRoadmapPanel;
+	@Inject
+	private CARoadmapServer server;
+
 	private NavigationButton navButton;
 
 	private CSVHandler csvHandler;
-	private FirebaseDatabase firestore;
+	private PlayerDataBatcher firestore;
 	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
 
+	@Inject
 	private RecommendTasks recommendTasks;
 	private String username;
 
@@ -105,11 +110,7 @@ public class CARoadmapPlugin extends Plugin
 			return t;
 		});
 
-		csvHandlerExecutor.submit(() -> {
-			this.csvHandler = new CSVHandler();
-		});
-
-		this.recommendTasks = new RecommendTasks();
+		this.csvHandler = new CSVHandler();
 	}
 
 	@Override
@@ -143,7 +144,7 @@ public class CARoadmapPlugin extends Plugin
 		this.wiseOldMan = new WiseOldMan(username);
 
 		firestoreExecutor.submit(() -> {
-			this.firestore = new FirebaseDatabase(username);
+			this.firestore = new PlayerDataBatcher(username, server);
 			fetchAndStorePlayerSkills(username);
 
 			Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
