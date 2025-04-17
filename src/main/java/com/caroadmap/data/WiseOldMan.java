@@ -1,4 +1,4 @@
-package data;
+package com.caroadmap.data;
 
 import java.net.URI;
 import java.net.URLEncoder;

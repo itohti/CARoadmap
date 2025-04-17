@@ -1,6 +1,6 @@
 package com.caroadmap.ui;
 
-import data.Task;
+import com.caroadmap.data.Task;
 import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.client.ui.ColorScheme;

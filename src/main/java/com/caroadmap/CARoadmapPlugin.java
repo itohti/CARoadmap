@@ -1,7 +1,7 @@
 package com.caroadmap;
 
+import com.caroadmap.data.*;
 import com.caroadmap.ui.CARoadmapPanel;
-import data.*;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;

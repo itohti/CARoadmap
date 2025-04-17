@@ -1,4 +1,4 @@
-package data;
+package com.caroadmap.data;
 
 public enum CSVColumns {
     BOSS_NAME(0),

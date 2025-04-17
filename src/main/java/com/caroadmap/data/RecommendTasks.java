@@ -1,4 +1,4 @@
-package data;
+package com.caroadmap.data;
 
 import com.caroadmap.dto.GetRecommendationsResponse;
 import com.caroadmap.dto.RecommendedTaskDTO;
