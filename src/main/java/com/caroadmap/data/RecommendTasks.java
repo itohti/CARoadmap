@@ -1,9 +1,10 @@
-package com.caroadmap;
+package com.caroadmap.data;
 
 import com.caroadmap.dto.GetRecommendationsResponse;
 import com.caroadmap.dto.RecommendedTaskDTO;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 
 @Slf4j
 public class RecommendTasks {
+    @Getter
     private ArrayList<Task> recommendedTasks;
     private final CSVHandler csvHandler = new CSVHandler();
 
@@ -45,11 +47,6 @@ public class RecommendTasks {
         fetchAndCacheRecommendationsFromServer(username, pointThreshold);
     }
 
-    public ArrayList<Task> getRecommendedTasks() {
-        log.info(recommendedTasks.toString());
-        return recommendedTasks;
-    }
-
     private ArrayList<Task> tryLoadLocalRecommendations() {
         ArrayList<Task> taskList = new ArrayList<>();
 
@@ -57,7 +54,7 @@ public class RecommendTasks {
             Iterable<CSVRecord> records = CSVFormat.Builder.create(CSVFormat.DEFAULT)
                     .setHeader(CSVColumns.class)
                     .setSkipHeaderRecord(true)
-                    .build()
+                    .get()
                     .parse(reader);
 
             for (CSVRecord record : records) {

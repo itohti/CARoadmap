@@ -1,4 +1,4 @@
-package com.caroadmap;
+package com.caroadmap.data;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

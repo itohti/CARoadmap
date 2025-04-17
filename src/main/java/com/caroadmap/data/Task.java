@@ -1,4 +1,4 @@
-package com.caroadmap;
+package com.caroadmap.data;
 
 import java.util.HashMap;
 import java.util.Map;

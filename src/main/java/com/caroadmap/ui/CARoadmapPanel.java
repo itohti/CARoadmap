@@ -1,8 +1,6 @@
 package com.caroadmap.ui;
 
-import com.caroadmap.Task;
-import com.caroadmap.TaskType;
-import com.google.api.Http;
+import com.caroadmap.data.Task;
 import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.client.ui.ColorScheme;
@@ -15,13 +13,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpResponse;
-import java.net.http.HttpRequest;
-import java.net.http.HttpClient;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Slf4j

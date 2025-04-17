@@ -1,5 +1,6 @@
 package com.caroadmap;
 
+import com.caroadmap.data.*;
 import com.caroadmap.ui.CARoadmapPanel;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
@@ -63,8 +64,6 @@ public class CARoadmapPlugin extends Plugin
 
 	private boolean getData = false;
 
-	private final Map<String, Integer> bossList = new HashMap<>();
-	private final Map<String, String> bossToRaid = new HashMap<>();
 	private RecommendTasks recommendTasks;
 	private String username;
 
@@ -77,7 +76,7 @@ public class CARoadmapPlugin extends Plugin
 		CARoadmapPanel caRoadmapPanel = new CARoadmapPanel();
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
-			System.err.println("Could not load icon");
+			log.error("Could not load icon");
 		}
 		try {
 			navButton = NavigationButton.builder()
@@ -89,7 +88,7 @@ public class CARoadmapPlugin extends Plugin
 			clientToolbar.addNavigation(navButton);
 		}
 		catch (Exception e) {
-			System.err.println("There was an error in setting up the nav button: " + e.getMessage());
+			log.error("There was an error in setting up the nav button: " + e.getMessage());
 		}
 
 		firestoreExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -134,102 +133,29 @@ public class CARoadmapPlugin extends Plugin
 	public void onGameTick(GameTick event) {
 		// this function gets called every GAME tick.
 		if (getData) {
-			this.username = getUsername();
-			this.wiseOldMan = new WiseOldMan(username);
-
-			firestoreExecutor.submit(() -> {
-				this.firestore = new FirebaseDatabase(username);
-				fetchAndStorePlayerData(username);
-				populateBossToRaid();
-
-				Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
-				for (Boss boss : wiseOldManData) {
-					// before we send it to firestore get pb.
-					Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBossName().toLowerCase(), double.class);
-					boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
-					firestore.addBossToBatch(boss);
-				}
-			});
-
-			populateData();
+			fetchData();
 			getData = false;
 		}
 	}
 
-	private void populateData() {
-		// from [proc,ca_tasks_total]
-		// there is an enum per ca tier
-		for (int enumId : new int[]{3981, 3982, 3983, 3984, 3985, 3986}) {
-			var listOfCombatTasks = client.getEnum(enumId);
-			// so we can iterate the enum to find a bunch of structs
-			for (int structId : listOfCombatTasks.getIntVals()) {
-				var task = client.getStructComposition(structId);
-				// and with the struct we can get info about the ca
-				// like its name
-				String name = task.getStringValue(1308);
-				// or its id, which we can use to get if its completed or not
-				int id = task.getIntValue(1306);
-				// 1308 is the description of the task.
-				String description = task.getStringValue(1309);
-				// 1310 is tier
-				int tier = task.getIntValue(1310);
-				// 1311 is the mapping of type. Refer to TaskType.java to see the mapping.
-				TaskType type = TaskType.fromValue(task.getIntValue(1311));
-				// inferring what boss it is based on the description.
-				String boss = "";
-				for (String bossName : bossList.keySet()) {
-					String lowerDescription = description.toLowerCase();
-					// weird case to barrows.
-					if (bossName.equals("Barrows Chests")) {
-						// change it to Barrows only.
-						if (description.contains("Barrows")) {
-							boss = "Barrows";
-						}
-					}
-					// Raids are weird too
-					for (String miniBoss : bossToRaid.keySet()) {
-						if (description.contains(miniBoss)) {
-							boss = bossToRaid.get(miniBoss);
-						}
-					}
-					// Perilous Moons
-					if (description.contains("Moons") || description.contains("Moon") || description.contains("moon")) {
-						boss = "Perilous Moons";
-					} else if (lowerDescription.contains(bossName.toLowerCase())) {
-						boss = bossName;
-					}
-				}
-				// we can use the cs2 vm to invoke script 4834 to do the lookup for us
-				client.runScript(4834, id);
-				boolean done = client.getIntStack()[0] != 0;
+	private void fetchData() {
+		this.username = getUsername();
+		this.wiseOldMan = new WiseOldMan(username);
 
-				Task taskObject = new Task(boss, name, description, type, tier, done);
-				// add to Firestore
-				firestoreExecutor.submit(() -> {
-					boolean result = firestore.addTaskToBatch(taskObject);
-					if (!result) {
-						System.err.println("Could not add task to batch");
-					}
-				});
+		firestoreExecutor.submit(() -> {
+			this.firestore = new FirebaseDatabase(username);
+			fetchAndStorePlayerSkills(username);
 
-				// finding the task in the csv file by its name
-				// to be deprecated
-//				csvHandlerExecutor.submit(() -> {
-//					Task readTask = csvHandler.getTask(name);
-//					if (readTask != null) {
-//						// if the task in the csv does not equal the task we fetched from the game update it.
-//						// this would typically happen if a player has completed a task.
-//						if (!taskObject.equals(readTask)) {
-//							csvHandler.updateTask(taskObject);
-//						}
-//					} else {
-//						// otherwise if we did not find the task in the csv file create a entry in the csv file.
-//						csvHandler.createTask(taskObject);
-//						log.info("Could not find task in csv, creating an entry for it...");
-//					}
-//				});
+			Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
+			for (Boss boss : wiseOldManData) {
+				// before we send it to firestore get pb.
+				Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBossName().toLowerCase(), double.class);
+				boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
+				firestore.addBossToBatch(boss);
 			}
-		}
+		});
+
+		fetchAndStorePlayerTasks();
 		firestoreExecutor.submit(() -> {
 			boolean result = firestore.sendData();
 			if (!result) {
@@ -249,23 +175,50 @@ public class CARoadmapPlugin extends Plugin
 
 	}
 
-	private void fetchAndStorePlayerData(String displayName) {
+	private void fetchAndStorePlayerTasks() {
+		// from [proc,ca_tasks_total]
+		// there is an enum per ca tier
+		for (int enumId : new int[]{3981, 3982, 3983, 3984, 3985, 3986}) {
+			var listOfCombatTasks = client.getEnum(enumId);
+			// so we can iterate the enum to find a bunch of structs
+			for (int structId : listOfCombatTasks.getIntVals()) {
+				var task = client.getStructComposition(structId);
+				// and with the struct we can get info about the ca
+				// like its name
+				String name = task.getStringValue(1308);
+				// or its id, which we can use to get if its completed or not
+				int id = task.getIntValue(1306);
+				// 1308 is the description of the task.
+				String description = task.getStringValue(1309);
+				// 1310 is tier
+				int tier = task.getIntValue(1310);
+				// 1311 is the mapping of type. Refer to TaskType.java to see the mapping.
+				TaskType type = TaskType.fromValue(task.getIntValue(1311));
+
+				// fetching the boss from game data for the combat task is not great, plus I don't even use it when I add the task in the db.
+				String boss = "";
+				// we can use the cs2 vm to invoke script 4834 to do the lookup for us
+				client.runScript(4834, id);
+				boolean done = client.getIntStack()[0] != 0;
+
+				Task taskObject = new Task(boss, name, description, type, tier, done);
+				// add to Firestore
+				firestoreExecutor.submit(() -> {
+					boolean result = firestore.addTaskToBatch(taskObject);
+					if (!result) {
+						log.error("Could not add task to batch");
+					}
+				});
+			}
+		}
+	}
+
+	private void fetchAndStorePlayerSkills(String displayName) {
 		if (displayName == null) {
 			return;
 		}
 		try {
 			HiscoreResult result = hiscoreClient.lookup(displayName);
-			boolean isBossList = false;
-			for (HiscoreSkill skill: result.getSkills().keySet()) {
-				if (isBossList) {
-					bossList.put(skill.getName(), result.getSkill(skill).getLevel());
-				}
-
-				else if (skill.getName().equals("Collections Logged")) {
-					isBossList = true;
-				}
-			}
-
 			// adding skills in firestore
 			firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
 			firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
@@ -278,42 +231,8 @@ public class CARoadmapPlugin extends Plugin
 
 		}
 		catch (IOException e) {
-			log.error("Could not fetch hiscores for user: " + displayName);
+			log.error("Could not fetch hiscores for user: ", e);
 		}
-	}
-
-	// bro find a way to get rid of this, this is ugly af.
-	private void populateBossToRaid() {
-		// Theatre of Blood
-		bossToRaid.put("Maiden of Sugadinti", "Theatre of Blood");
-		bossToRaid.put("Pestilent Bloat", "Theatre of Blood");
-		bossToRaid.put("Nylocas Vasilias", "Theatre of Blood");
-		bossToRaid.put("Sotetseg", "Theatre of Blood");
-		bossToRaid.put("Xarpus", "Theatre of Blood");
-		bossToRaid.put("Verzik", "Theatre of Blood");
-
-		// Chambers of Xeric
-		bossToRaid.put("Tightrope", "Chambers of Xeric");
-		bossToRaid.put("Great Olm", "Chambers of Xeric");
-		bossToRaid.put("Vasa Nistirio", "Chambers of Xeric");
-		bossToRaid.put("Tekton", "Chambers of Xeric");
-		bossToRaid.put("Crystal Crabs", "Chambers of Xeric");
-		bossToRaid.put("Vanguards", "Chambers of Xeric");
-		bossToRaid.put("Vespula", "Chambers of Xeric");
-		bossToRaid.put("Muttadile", "Chambers of Xeric");
-		bossToRaid.put("Stone Guardian", "Chambers of Xeric");
-		bossToRaid.put("Shaman", "Chambers of Xeric");
-		bossToRaid.put("Ice Demon", "Chambers of Xeric");
-
-		// Tombs of Amascut
-		bossToRaid.put("Ba-Ba", "Tombs of Amascut");
-		bossToRaid.put("Zebak", "Tombs of Amascut");
-		bossToRaid.put("Kephri", "Tombs of Amascut");
-		bossToRaid.put("Akkha", "Tombs of Amascut");
-		bossToRaid.put("Wardens", "Tombs of Amascut");
-		bossToRaid.put("Het", "Tombs of Amascut");
-		bossToRaid.put("Apmeken", "Tombs of Amascut");
-		bossToRaid.put("Crondis", "Tombs of Amascut");
 	}
 
 	private String getUsername() {
