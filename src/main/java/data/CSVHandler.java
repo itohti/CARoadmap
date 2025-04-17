@@ -1,4 +1,4 @@
-package com.caroadmap;
+package data;
 
 import net.runelite.client.RuneLite;
 

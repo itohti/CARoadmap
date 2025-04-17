@@ -1,6 +1,6 @@
 package com.caroadmap.ui;
 
-import com.caroadmap.Task;
+import data.Task;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 

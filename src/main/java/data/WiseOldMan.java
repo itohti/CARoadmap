@@ -1,4 +1,4 @@
-package com.caroadmap;
+package data;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -8,12 +8,9 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.caroadmap.dto.EhbResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Data;
 
 public class WiseOldMan {
     private final String displayName;
@@ -72,29 +69,5 @@ public class WiseOldMan {
             }
         }
         return formattedStringBuilder;
-    }
-}
-
-@Data
-@JsonIgnoreProperties(ignoreUnknown = true)
-class EhbResponse {
-    public LatestSnapshot latestSnapshot;
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class LatestSnapshot {
-        public SnapshotData data;
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class SnapshotData {
-        public Map<String, Boss> bosses;
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Boss {
-        public String metric;
-        public int kills;
-        public int rank;
-        public double ehb;
     }
 }
