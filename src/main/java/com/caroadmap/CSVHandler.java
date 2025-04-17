@@ -20,7 +20,7 @@ public class CSVHandler {
             pluginDir.mkdirs();
         }
 
-        File csvFile = new File(pluginDir, "combat_achievements_checklist.csv");
+        File csvFile = new File(pluginDir, "recommendations_list.csv");
         if (!csvFile.exists()) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile))) {
                 writer.write("Boss,Task Name,Task Description,Type,Tier,Done\n");
@@ -141,5 +141,9 @@ public class CSVHandler {
         } catch (IOException e) {
             System.err.println("Could not write to csv file: " + csvPath);
         }
+    }
+
+    public String getCsvPath() {
+        return csvPath;
     }
 }

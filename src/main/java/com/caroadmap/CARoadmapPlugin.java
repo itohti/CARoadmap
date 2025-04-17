@@ -1,8 +1,9 @@
 package com.caroadmap;
 
+import com.caroadmap.dto.GetRecommendationsResponse;
+import com.caroadmap.dto.RecommendedTaskDTO;
 import com.caroadmap.ui.CARoadmapPanel;
-import net.runelite.api.widgets.ComponentID;
-import net.runelite.api.widgets.Widget;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
@@ -24,11 +25,15 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-import org.checkerframework.checker.units.qual.C;
-
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -69,6 +74,8 @@ public class CARoadmapPlugin extends Plugin
 
 	private final Map<String, Integer> bossList = new HashMap<>();
 	private final Map<String, String> bossToRaid = new HashMap<>();
+	private RecommendTasks recommendTasks;
+	private String username;
 
 	private ExecutorService firestoreExecutor;
 	private ExecutorService csvHandlerExecutor;
@@ -111,6 +118,8 @@ public class CARoadmapPlugin extends Plugin
 		csvHandlerExecutor.submit(() -> {
 			this.csvHandler = new CSVHandler();
 		});
+
+		this.recommendTasks = new RecommendTasks();
 	}
 
 	@Override
@@ -134,7 +143,7 @@ public class CARoadmapPlugin extends Plugin
 	public void onGameTick(GameTick event) {
 		// this function gets called every GAME tick.
 		if (getData) {
-			final String username = getUsername();
+			this.username = getUsername();
 			this.wiseOldMan = new WiseOldMan(username);
 
 			firestoreExecutor.submit(() -> {
@@ -156,7 +165,7 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
-	public void populateData() {
+	private void populateData() {
 		// from [proc,ca_tasks_total]
 		// there is an enum per ca tier
 		for (int enumId : new int[]{3981, 3982, 3983, 3984, 3985, 3986}) {
@@ -213,20 +222,21 @@ public class CARoadmapPlugin extends Plugin
 				});
 
 				// finding the task in the csv file by its name
-				csvHandlerExecutor.submit(() -> {
-					Task readTask = csvHandler.getTask(name);
-					if (readTask != null) {
-						// if the task in the csv does not equal the task we fetched from the game update it.
-						// this would typically happen if a player has completed a task.
-						if (!taskObject.equals(readTask)) {
-							csvHandler.updateTask(taskObject);
-						}
-					} else {
-						// otherwise if we did not find the task in the csv file create a entry in the csv file.
-						csvHandler.createTask(taskObject);
-						log.info("Could not find task in csv, creating an entry for it...");
-					}
-				});
+				// to be deprecated
+//				csvHandlerExecutor.submit(() -> {
+//					Task readTask = csvHandler.getTask(name);
+//					if (readTask != null) {
+//						// if the task in the csv does not equal the task we fetched from the game update it.
+//						// this would typically happen if a player has completed a task.
+//						if (!taskObject.equals(readTask)) {
+//							csvHandler.updateTask(taskObject);
+//						}
+//					} else {
+//						// otherwise if we did not find the task in the csv file create a entry in the csv file.
+//						csvHandler.createTask(taskObject);
+//						log.info("Could not find task in csv, creating an entry for it...");
+//					}
+//				});
 			}
 		}
 		firestoreExecutor.submit(() -> {
@@ -235,9 +245,20 @@ public class CARoadmapPlugin extends Plugin
 				log.error("Did not upload player data to database");
 			}
 		});
+		// get recommendations and store it
+		csvHandlerExecutor.submit(() -> {
+			// threshold is hard coded right now when we start working on the UI fix this TODO
+			recommendTasks.getRecommendations(username, 1014);
+
+			ArrayList<Task> recommendedTasks = recommendTasks.getRecommendedTasks();
+			for (Task task : recommendedTasks) {
+				csvHandler.createTask(task);
+			}
+		});
+
 	}
 
-	public void fetchAndStorePlayerData(String displayName) {
+	private void fetchAndStorePlayerData(String displayName) {
 		if (displayName == null) {
 			return;
 		}
@@ -270,7 +291,8 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
-	public void populateBossToRaid() {
+	// bro find a way to get rid of this, this is ugly af.
+	private void populateBossToRaid() {
 		// Theatre of Blood
 		bossToRaid.put("Maiden of Sugadinti", "Theatre of Blood");
 		bossToRaid.put("Pestilent Bloat", "Theatre of Blood");
