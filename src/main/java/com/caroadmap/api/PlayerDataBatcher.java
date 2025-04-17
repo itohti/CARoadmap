@@ -1,17 +1,8 @@
-package com.caroadmap.data;
+package com.caroadmap.api;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.caroadmap.data.Boss;
+import com.caroadmap.data.Task;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-
-
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,17 +10,17 @@ import java.util.Map;
 /**
  * Handles all logic regarding firestore.
  */
-public class FirebaseDatabase {
-    private HttpClient client;
-    private String username;
+public class PlayerDataBatcher {
+    private final String username;
     private Map<String, ArrayList<Object>> batch;
+    private final CARoadmapServer server;
     /**
      * Constructor that sets up Admin SDK access to firebase project.
      */
-    public FirebaseDatabase(String username) {
+    public PlayerDataBatcher(String username, CARoadmapServer server) {
         this.username = username;
-        this.client = HttpClient.newHttpClient();
         this.batch = new HashMap<>();
+        this.server = server;
         this.batch.put("boss_info", new ArrayList<>());
         this.batch.put("combat_stats", new ArrayList<>());
         this.batch.put("tasks", new ArrayList<>());
@@ -91,31 +82,6 @@ public class FirebaseDatabase {
     }
 
     public boolean sendData() {
-        String jsonBody = convertMapToString(batch);
-        String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("https://osrs.izdartohti.org/playerdata?username=%s", encodedUsername)))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
-
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            return response.statusCode() == 200;
-        }
-        catch (InterruptedException | IOException e) {
-            System.err.println("Could not connect to backend... Did not upload player data: " + e);
-            return false;
-        }
-    }
-
-    private String convertMapToString(Map<String, ArrayList<Object>> map) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.writeValueAsString(map);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to convert map to JSON string.", e);
-        }
+        return server.storePlayerData(username, batch);
     }
 }

@@ -1,22 +1,17 @@
 package com.caroadmap.data;
 
+import com.caroadmap.api.CARoadmapServer;
 import com.caroadmap.dto.GetRecommendationsResponse;
 import com.caroadmap.dto.RecommendedTaskDTO;
-import com.fasterxml.jackson.core.json.JsonReadFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 
+import javax.inject.Inject;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
@@ -26,8 +21,14 @@ public class RecommendTasks {
     private ArrayList<Task> recommendedTasks;
     private final CSVHandler csvHandler = new CSVHandler();
 
-    public RecommendTasks() {
-        recommendedTasks = new ArrayList<>();
+
+    private final CARoadmapServer server;
+
+    @Inject
+    public RecommendTasks(CARoadmapServer server) {
+        log.info("Initialized RecommendTasks");
+        this.recommendedTasks = new ArrayList<>();
+        this.server = server;
     }
 
     /**
@@ -77,19 +78,8 @@ public class RecommendTasks {
 
     private void fetchAndCacheRecommendationsFromServer(String username, int pointThreshold) {
         ArrayList<Task> recommendedTasks = new ArrayList<>();
-
-        HttpClient client = HttpClient.newHttpClient();
-        String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("https://osrs.izdartohti.org/get_recommendations?username=%s&point_threshold=%d", encodedUsername, pointThreshold)))
-                .GET()
-                .build();
-
         try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS.mappedFeature(), true);
-            GetRecommendationsResponse recommendationsList = mapper.readValue(response.body(), GetRecommendationsResponse.class);
+            GetRecommendationsResponse recommendationsList = server.getRecommendations(username, pointThreshold);
 
             for (RecommendedTaskDTO task : recommendationsList.recommended_tasks) {
                 try {
@@ -102,7 +92,7 @@ public class RecommendTasks {
                             false
                     );
                     recommendedTasks.add(newTask);
-                    csvHandler.createTask(newTask); // 💾 Save to local CSV
+                    csvHandler.createTask(newTask);
                 } catch (Exception e) {
                     log.error("Failed to parse task from server response", e);
                 }

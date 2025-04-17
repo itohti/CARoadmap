@@ -1,4 +1,4 @@
-package com.caroadmap.data;
+package com.caroadmap.api;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
+import com.caroadmap.data.Boss;
 import com.caroadmap.dto.EhbResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
