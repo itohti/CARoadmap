@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.protocol.HTTP;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -16,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 @Singleton
@@ -45,6 +47,25 @@ public class CARoadmapServer {
         }
         catch (InterruptedException | IOException | RuntimeException e) {
             log.error("Could not connect to backend... Did not upload player data: ", e);
+            return false;
+        }
+    }
+
+    public boolean updatePlayerTask(String username, String taskName) {
+        try {
+            Map<String, String> jsonBody = new HashMap<>();
+            jsonBody.put("task_name", taskName);
+            String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(String.format("https://osrs.izdartohti.org/mark_completed?username=%s", username)))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody.toString()))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200;
+        }
+        catch (IOException | InterruptedException e) {
+            log.error("Could not update player task", e);
             return false;
         }
     }

@@ -5,6 +5,11 @@ import com.caroadmap.api.PlayerDataBatcher;
 import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.ui.CARoadmapPanel;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
@@ -12,6 +17,7 @@ import net.runelite.client.hiscore.HiscoreSkill;
 import com.google.inject.Provides;
 
 import javax.inject.Inject;
+import javax.swing.*;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -60,15 +66,17 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private CARoadmapServer server;
 
+	@Inject
+	private SpriteManager spriteManager;
+
+	private CARoadmapPanel caRoadmapPanel;
 	private NavigationButton navButton;
 
-	private CSVHandler csvHandler;
-	private PlayerDataBatcher firestore;
+    private PlayerDataBatcher firestore;
 	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
 
-	@Inject
 	private RecommendTasks recommendTasks;
 	private String username;
 
@@ -78,7 +86,7 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		CARoadmapPanel caRoadmapPanel = new CARoadmapPanel();
+		this.caRoadmapPanel = new CARoadmapPanel(spriteManager);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			log.error("Could not load icon");
@@ -109,8 +117,6 @@ public class CARoadmapPlugin extends Plugin
 			t.setName("csvThread");
 			return t;
 		});
-
-		this.csvHandler = new CSVHandler();
 	}
 
 	@Override
@@ -139,8 +145,44 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
+	@Subscribe
+	public void onChatMessage(ChatMessage event) {
+		if (event.getType() == ChatMessageType.GAMEMESSAGE) {
+			String msg = event.getMessage();
+			if (msg.contains("combat task") && msg.contains("completed")) {
+				try {
+					String taskNameAndPoints = msg.split(":")[1];
+					String taskName = taskNameAndPoints.split("\\(")[0].trim();
+					log.info(taskName);
+					boolean result = caRoadmapPanel.removeTask(taskName);
+					if (!result) {
+						log.info("Did not find task name in recommended list.");
+					}
+					// updates backend
+					server.updatePlayerTask(username, taskName);
+					caRoadmapPanel.removeTask(taskName);
+					caRoadmapPanel.updateTaskDisplay();
+				}
+				catch (Exception e) {
+					log.error("Something went wrong with getting task name", e);
+				}
+			}
+		}
+	}
+
+	@Subscribe
+	public void onWidgetLoaded(WidgetLoaded event) {
+		if (event.getGroupId() == InterfaceID.COMBAT_INTERFACE) {
+			// work on this after you bond up your account lol
+
+		}
+	}
+
 	private void fetchData() {
 		this.username = getUsername();
+        CSVHandler csvHandler = new CSVHandler(username);
+		this.recommendTasks = new RecommendTasks(server, csvHandler);
+		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
 
 		firestoreExecutor.submit(() -> {
@@ -169,11 +211,18 @@ public class CARoadmapPlugin extends Plugin
 			recommendTasks.getRecommendations(username, 1014);
 
 			ArrayList<Task> recommendedTasks = recommendTasks.getRecommendedTasks();
-			for (Task task : recommendedTasks) {
-				csvHandler.createTask(task);
-			}
 		});
 
+		csvHandlerExecutor.submit(() -> {
+			recommendTasks.getRecommendations(username, 1014);
+
+			SwingUtilities.invokeLater(() -> {
+				if (caRoadmapPanel != null) {
+					caRoadmapPanel.setUsername(username);
+					caRoadmapPanel.refresh(username);
+				}
+			});
+		});
 	}
 
 	private void fetchAndStorePlayerTasks() {

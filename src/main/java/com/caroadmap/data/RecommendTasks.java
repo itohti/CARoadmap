@@ -19,15 +19,16 @@ import java.util.ArrayList;
 public class RecommendTasks {
     @Getter
     private ArrayList<Task> recommendedTasks;
-    private final CSVHandler csvHandler = new CSVHandler();
+    private final CSVHandler csvHandler;
 
 
     private final CARoadmapServer server;
 
     @Inject
-    public RecommendTasks(CARoadmapServer server) {
+    public RecommendTasks(CARoadmapServer server, CSVHandler csvHandler) {
         log.info("Initialized RecommendTasks");
         this.recommendedTasks = new ArrayList<>();
+        this.csvHandler = csvHandler;
         this.server = server;
     }
 

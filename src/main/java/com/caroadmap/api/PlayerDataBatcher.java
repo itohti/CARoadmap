@@ -7,16 +7,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Handles all logic regarding firestore.
- */
 public class PlayerDataBatcher {
     private final String username;
     private Map<String, ArrayList<Object>> batch;
     private final CARoadmapServer server;
-    /**
-     * Constructor that sets up Admin SDK access to firebase project.
-     */
+
     public PlayerDataBatcher(String username, CARoadmapServer server) {
         this.username = username;
         this.batch = new HashMap<>();
