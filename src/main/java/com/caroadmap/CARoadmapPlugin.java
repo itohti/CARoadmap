@@ -74,7 +74,6 @@ public class CARoadmapPlugin extends Plugin
 
 	private boolean getData = false;
 
-	@Inject
 	private RecommendTasks recommendTasks;
 	private String username;
 
@@ -84,7 +83,7 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		this.caRoadmapPanel = new CARoadmapPanel(recommendTasks, spriteManager);
+		this.caRoadmapPanel = new CARoadmapPanel(spriteManager);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			log.error("Could not load icon");
@@ -115,8 +114,6 @@ public class CARoadmapPlugin extends Plugin
 			t.setName("csvThread");
 			return t;
 		});
-
-		this.csvHandler = new CSVHandler();
 	}
 
 	@Override
@@ -147,6 +144,9 @@ public class CARoadmapPlugin extends Plugin
 
 	private void fetchData() {
 		this.username = getUsername();
+		this.csvHandler = new CSVHandler(username);
+		this.recommendTasks = new RecommendTasks(server, csvHandler);
+		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
 
 		firestoreExecutor.submit(() -> {
@@ -175,17 +175,6 @@ public class CARoadmapPlugin extends Plugin
 			recommendTasks.getRecommendations(username, 1014);
 
 			ArrayList<Task> recommendedTasks = recommendTasks.getRecommendedTasks();
-			for (Task task : recommendedTasks) {
-				Task savedTask = csvHandler.getTask(task.getTaskName());
-				if (savedTask != null) {
-					if (!savedTask.equals(task)) {
-						csvHandler.updateTask(task);
-					}
-				}
-				else {
-					csvHandler.createTask(task);
-				}
-			}
 		});
 
 		csvHandlerExecutor.submit(() -> {

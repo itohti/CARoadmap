@@ -14,13 +14,15 @@ public class CSVHandler {
     /**
      * Creates a CSV file if it doesn't already exist.
      */
-    public CSVHandler() {
+    public CSVHandler(String username) {
         File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
         if (!pluginDir.exists()) {
             pluginDir.mkdirs();
         }
 
-        File csvFile = new File(pluginDir, "recommendations_list.csv");
+        String cleaned = username.replace(" ", "_");
+
+        File csvFile = new File(pluginDir, String.format("recommendations_list_%s.csv", cleaned));
         if (!csvFile.exists()) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile))) {
                 writer.write("Boss,Task Name,Task Description,Type,Tier,Done\n");

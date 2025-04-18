@@ -2,6 +2,7 @@ package com.caroadmap.ui;
 
 import com.caroadmap.data.RecommendTasks;
 import com.caroadmap.data.Task;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.client.game.SpriteManager;
@@ -18,13 +19,15 @@ import java.awt.event.ActionListener;
 import java.util.ArrayList;
 @Slf4j
 public class CARoadmapPanel extends PluginPanel{
+    @Setter
     private RecommendTasks recommendTasks;
     private ArrayList<Task> taskList;
+    @Setter
     private String username;
     private JPanel taskContainer;
     private SpriteManager spriteManager;
     @Inject
-    public CARoadmapPanel(RecommendTasks recommendTasks, SpriteManager spriteManager) {
+    public CARoadmapPanel(SpriteManager spriteManager) {
         super(false);
         this.recommendTasks = recommendTasks;
         this.spriteManager = spriteManager;
@@ -70,10 +73,6 @@ public class CARoadmapPanel extends PluginPanel{
     public void refresh(String username) {
         this.taskList = recommendTasks.getRecommendedTasks();
         updateTaskDisplay();
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
     }
 
     private void updateTaskDisplay() {

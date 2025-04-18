@@ -29,6 +29,11 @@ public class DisplayTask extends JPanel {
 
     static {
         BOSS_TO_SKILL_MAP.put("Theatre of Blood: Entry Mode", HiscoreSkill.THEATRE_OF_BLOOD);
+        BOSS_TO_SKILL_MAP.put("Tombs of Amascut: Expert Mode", HiscoreSkill.TOMBS_OF_AMASCUT_EXPERT);
+        BOSS_TO_SKILL_MAP.put("Barrows", HiscoreSkill.BARROWS_CHESTS);
+        BOSS_TO_SKILL_MAP.put("Crystalline Hunllef", HiscoreSkill.THE_GAUNTLET);
+        BOSS_TO_SKILL_MAP.put("Corrupted Hunllef", HiscoreSkill.THE_CORRUPTED_GAUNTLET);
+        BOSS_TO_SKILL_MAP.put("Moons of Peril", HiscoreSkill.LUNAR_CHESTS);
     }
 
     static {
@@ -42,15 +47,19 @@ public class DisplayTask extends JPanel {
 
 
     public DisplayTask(Task task, SpriteManager spriteManager) {
-        // this might not work for things like TOB (entry mode) so we have to map these.
         JLabel icon = new JLabel();
         try {
             HiscoreSkill skill = BOSS_TO_SKILL_MAP.get(task.getBoss());
             if (skill == null) {
-                skill = HiscoreSkill.valueOf(task.getBoss().toUpperCase()
-                        .replace(" ", "_")
-                        .replace("'", "")
-                        .replace(":", ""));
+                try {
+                    skill = HiscoreSkill.valueOf(task.getBoss().toUpperCase()
+                            .replace(" ", "_")
+                            .replace("'", "")
+                            .replace("-", "_"));
+                }
+                catch (IllegalArgumentException e) {
+                    log.info("Could not find skill for {}", task.getBoss());
+                }
             }
             icon.setToolTipText(task.getBoss());
             // Credit goes to runelite Hiscore. This code is not mine.
