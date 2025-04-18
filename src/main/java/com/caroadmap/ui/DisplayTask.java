@@ -86,7 +86,7 @@ public class DisplayTask extends JPanel {
         headerPanel.setBorder(BorderFactory.createEmptyBorder());
 
         // create components
-        JLabel taskLabel = new JLabel(task.getTaskName());
+        JLabel taskName = new JLabel(task.getTaskName());
         JLabel taskTier = new JLabel();
         taskTier.setIcon(new ImageIcon(getTierIcon(task.getTier())));
         taskTier.setToolTipText("+" + task.getTier());
@@ -114,7 +114,7 @@ public class DisplayTask extends JPanel {
         gbc.weightx = 0.7;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.anchor = GridBagConstraints.NORTHWEST;
-        gbc.insets = new Insets(0, 0, 0, 10);
+        gbc.insets = new Insets(0, 0, 0, 5);
         detailPanel.add(taskDescription, gbc);
 
         gbc.gridx = 1;
@@ -126,7 +126,7 @@ public class DisplayTask extends JPanel {
 
         // Add components to main content
         headerPanel.add(icon);
-        headerPanel.add(taskLabel);
+        headerPanel.add(taskName);
         headerPanel.add(taskTier);
 
         // Add mouse listener to the main content panel

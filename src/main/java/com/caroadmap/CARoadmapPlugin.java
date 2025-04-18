@@ -5,6 +5,10 @@ import com.caroadmap.api.PlayerDataBatcher;
 import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.ui.CARoadmapPanel;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
@@ -68,8 +72,7 @@ public class CARoadmapPlugin extends Plugin
 	private CARoadmapPanel caRoadmapPanel;
 	private NavigationButton navButton;
 
-	private CSVHandler csvHandler;
-	private PlayerDataBatcher firestore;
+    private PlayerDataBatcher firestore;
 	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
@@ -142,9 +145,42 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
+	@Subscribe
+	public void onChatMessage(ChatMessage event) {
+		if (event.getType() == ChatMessageType.GAMEMESSAGE) {
+			String msg = event.getMessage();
+			if (msg.contains("combat task") && msg.contains("completed")) {
+				try {
+					String taskNameAndPoints = msg.split(":")[1];
+					String taskName = taskNameAndPoints.split("\\(")[0].trim();
+					log.info(taskName);
+					boolean result = caRoadmapPanel.removeTask(taskName);
+					if (!result) {
+						log.info("Did not find task name in recommended list.");
+					}
+					// updates backend
+					server.updatePlayerTask(username, taskName);
+					caRoadmapPanel.removeTask(taskName);
+					caRoadmapPanel.updateTaskDisplay();
+				}
+				catch (Exception e) {
+					log.error("Something went wrong with getting task name", e);
+				}
+			}
+		}
+	}
+
+	@Subscribe
+	public void onWidgetLoaded(WidgetLoaded event) {
+		if (event.getGroupId() == InterfaceID.COMBAT_INTERFACE) {
+			// work on this after you bond up your account lol
+
+		}
+	}
+
 	private void fetchData() {
 		this.username = getUsername();
-		this.csvHandler = new CSVHandler(username);
+        CSVHandler csvHandler = new CSVHandler(username);
 		this.recommendTasks = new RecommendTasks(server, csvHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);

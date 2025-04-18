@@ -75,7 +75,18 @@ public class CARoadmapPanel extends PluginPanel{
         updateTaskDisplay();
     }
 
-    private void updateTaskDisplay() {
+    public boolean removeTask(String taskName) {
+        for (Task task: taskList) {
+            if (task.getTaskName().equals(taskName)) {
+                taskList.remove(task);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void updateTaskDisplay() {
         taskContainer.removeAll();
         for (Task task : taskList) {
             taskContainer.add(new DisplayTask(task, spriteManager));
