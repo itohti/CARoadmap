@@ -35,6 +35,8 @@ import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,6 +81,7 @@ public class CARoadmapPlugin extends Plugin
 
 	private RecommendTasks recommendTasks;
 	private String username;
+	private String apiKey;
 
 	private ExecutorService firestoreExecutor;
 	private ExecutorService csvHandlerExecutor;
@@ -86,6 +89,7 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
+		this.apiKey = config.apiKey();
 		this.caRoadmapPanel = new CARoadmapPanel(spriteManager);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
@@ -180,10 +184,19 @@ public class CARoadmapPlugin extends Plugin
 
 	private void fetchData() {
 		this.username = getUsername();
+
+		// Initialize classes that are dependent on username
         CSVHandler csvHandler = new CSVHandler(username);
 		this.recommendTasks = new RecommendTasks(server, csvHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
+		if (!apiKey.isEmpty()) {
+			server.setApiKey(apiKey);
+		}
+		else {
+			server.register(username);
+			configManager.setConfiguration("CARoadmap", "apiKey", server.getApiKey());
+		}
 
 		firestoreExecutor.submit(() -> {
 			this.firestore = new PlayerDataBatcher(username, server);
