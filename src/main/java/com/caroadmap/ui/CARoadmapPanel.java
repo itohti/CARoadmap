@@ -116,11 +116,16 @@ public class CARoadmapPanel extends PluginPanel{
     }
 
     private JComboBox<String> getSortByMenu() {
-        String[] options = { "Boss", "Tier", "Score" };
+        String[] options = { "Recommended", "Tier", "Boss" };
         JComboBox<String> sortDropdown = new JComboBox<>(options);
         sortDropdown.addActionListener(e -> {
             String selected = (String) sortDropdown.getSelectedItem();
-            recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
+            if (selected.equals("Recommended")) {
+                recommendTasks.setSortingType(SortingType.valueOf("SCORE"));
+            }
+            else {
+                recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
+            }
             recommendTasks.getRecommendations(username, 1014);
             refresh(username);
         });
