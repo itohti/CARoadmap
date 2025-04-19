@@ -1,15 +1,33 @@
 package com.caroadmap.data;
 
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Task {
+    @Getter
+    @Setter
     private String boss;
+    @Getter
+    @Setter
     private String taskName;
+    @Getter
+    @Setter
     private String taskDescription;
+    @Getter
     private TaskType type;
+    @Getter
+    @Setter
     private int tier;
+    @Getter
+    @Setter
     private boolean done;
+    @Getter
+    @Setter
+    private Double score;
 
     // Constructor
     public Task(String boss, String taskName, String taskDescription, TaskType type, int tier, boolean done) {
@@ -30,58 +48,8 @@ public class Task {
         this.done = Boolean.parseBoolean(done);
     }
 
-    // Getter and Setter for boss
-    public String getBoss() {
-        return boss;
-    }
-
-    public void setBoss(String boss) {
-        this.boss = boss;
-    }
-
-    // Getter and Setter for taskName
-    public String getTaskName() {
-        return taskName;
-    }
-
-    public void setTaskName(String taskName) {
-        this.taskName = taskName;
-    }
-
-    // Getter and Setter for taskDescription
-    public String getTaskDescription() {
-        return taskDescription;
-    }
-
-    public void setTaskDescription(String taskDescription) {
-        this.taskDescription = taskDescription;
-    }
-
-    // Getter and Setter for type
-    public TaskType getType() {
-        return type;
-    }
-
     public void setType(int type) {
         this.type = TaskType.fromValue(type);
-    }
-
-    // Getter and Setter for tier
-    public int getTier() {
-        return tier;
-    }
-
-    public void setTier(int tier) {
-        this.tier = tier;
-    }
-
-    // Getter and Setter for done
-    public boolean isDone() {
-        return done;
-    }
-
-    public void setDone(boolean done) {
-        this.done = done;
     }
 
     /**
@@ -136,6 +104,18 @@ public class Task {
                 this.type == otherTask.type &&
                 this.tier == otherTask.tier &&
                 this.done == otherTask.done;
+    }
+
+    public static Comparator<Task> byScore() {
+        return Comparator.comparingDouble(Task::getScore);
+    }
+
+    public static Comparator<Task> byTier() {
+        return Comparator.comparingInt(Task::getTier);
+    }
+
+    public static Comparator<Task> byBoss() {
+        return Comparator.comparing(Task::getBoss);
     }
 }
 

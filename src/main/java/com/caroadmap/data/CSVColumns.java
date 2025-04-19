@@ -6,7 +6,8 @@ public enum CSVColumns {
     TASK_DESCRIPTION(2),
     TYPE(3),
     TIER(4),
-    DONE(5);
+    DONE(5),
+    SCORE(6);
 
     private final int index;
 

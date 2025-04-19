@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class CSVHandler {
-    private String csvPath;
+    private final String csvPath;
     /**
      * Creates a CSV file if it doesn't already exist.
      */
@@ -25,7 +25,7 @@ public class CSVHandler {
         File csvFile = new File(pluginDir, String.format("recommendations_list_%s.csv", cleaned));
         if (!csvFile.exists()) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile))) {
-                writer.write("Boss,Task Name,Task Description,Type,Tier,Done\n");
+                writer.write("Boss,Task Name,Task Description,Type,Tier,Done,Score\n");
             } catch (IOException e) {
                 System.err.println("Could not create reader and writer for csv file.");
             }
@@ -76,7 +76,6 @@ public class CSVHandler {
         try (Reader reader = new FileReader(csvPath, StandardCharsets.UTF_8);
              BufferedWriter writer = new BufferedWriter(new FileWriter(tmp))) {
 
-            // Updated code to avoid using deprecated withHeader()
             CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
                     .setHeader(CSVColumns.class)
                     .setSkipHeaderRecord(true)
@@ -137,11 +136,21 @@ public class CSVHandler {
      * This will create a Task if it is not in the csv file.
      */
     public void createTask(Task task) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
-            writer.write(task.toString());
-            writer.newLine();
-        } catch (IOException e) {
-            System.err.println("Could not write to csv file: " + csvPath);
+        if (task.getScore() == null) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
+                writer.write(task.toString());
+                writer.newLine();
+            } catch (IOException e) {
+                System.err.println("Could not write to csv file: " + csvPath);
+            }
+        }
+        else {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
+                writer.write(String.format("%s,%f", task.toString(), task.getScore()));
+                writer.newLine();
+            } catch (IOException e) {
+                System.err.println("Could not write to csv file: " + csvPath);
+            }
         }
     }
 

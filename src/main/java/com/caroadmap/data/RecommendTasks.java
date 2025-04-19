@@ -4,6 +4,7 @@ import com.caroadmap.api.CARoadmapServer;
 import com.caroadmap.dto.GetRecommendationsResponse;
 import com.caroadmap.dto.RecommendedTaskDTO;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
@@ -20,13 +21,17 @@ public class RecommendTasks {
     @Getter
     private ArrayList<Task> recommendedTasks;
     private final CSVHandler csvHandler;
-
+    // default is sorting by score.
+    @Setter
+    private SortingType sortingType = SortingType.SCORE;
+    @Setter
+    @Getter
+    private boolean ascending;
 
     private final CARoadmapServer server;
 
     @Inject
     public RecommendTasks(CARoadmapServer server, CSVHandler csvHandler) {
-        log.info("Initialized RecommendTasks");
         this.recommendedTasks = new ArrayList<>();
         this.csvHandler = csvHandler;
         this.server = server;
@@ -68,8 +73,14 @@ public class RecommendTasks {
                         record.get(CSVColumns.TIER),
                         record.get(CSVColumns.DONE)
                 );
+
+                double score = Double.parseDouble(record.get(CSVColumns.SCORE));
+
+                task.setScore(score);
                 taskList.add(task);
             }
+
+            sortRecommendations(taskList);
         } catch (IOException e) {
             log.warn("Could not load local recommendation list. Will try server next.", e);
         }
@@ -92,6 +103,7 @@ public class RecommendTasks {
                             task.getTier(),
                             false
                     );
+                    newTask.setScore(task.getScore());
                     recommendedTasks.add(newTask);
                     csvHandler.createTask(newTask);
                 } catch (Exception e) {
@@ -99,10 +111,41 @@ public class RecommendTasks {
                 }
             }
 
+            sortRecommendations(recommendedTasks);
+
         } catch (IOException | InterruptedException e) {
             log.error("Error fetching recommendations from server: ", e);
         }
 
         this.recommendedTasks = recommendedTasks;
+    }
+
+    private void sortRecommendations(ArrayList<Task> recommendedTasks) {
+        if (sortingType == SortingType.SCORE) {
+            if (this.ascending) {
+                recommendedTasks.sort(Task.byScore());
+            }
+            else {
+                recommendedTasks.sort(Task.byScore().reversed());
+            }
+        }
+
+        if (sortingType == SortingType.BOSS) {
+            if (this.ascending) {
+                recommendedTasks.sort(Task.byBoss());
+            }
+            else {
+                recommendedTasks.sort(Task.byBoss().reversed());
+            }
+        }
+
+        if (sortingType == SortingType.TIER) {
+            if (this.ascending) {
+                recommendedTasks.sort(Task.byTier());
+            }
+            else {
+                recommendedTasks.sort(Task.byTier().reversed());
+            }
+        }
     }
 }
