@@ -26,6 +26,9 @@ public class DisplayTask extends JPanel {
     private boolean expanded = false;
     public static final Map<Integer, String> TIER_ICON_MAP = new HashMap<>();
     private static final Map<String, HiscoreSkill> BOSS_TO_SKILL_MAP = new HashMap<>();
+    private final BufferedImage downArrow = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/down_arrow.png");
+    private final BufferedImage rightArrow = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/right_arrow.png");
+    private final JLabel toggleArrow = new JLabel(new ImageIcon(rightArrow));
 
     static {
         BOSS_TO_SKILL_MAP.put("Theatre of Blood: Entry Mode", HiscoreSkill.THEATRE_OF_BLOOD);
@@ -86,16 +89,21 @@ public class DisplayTask extends JPanel {
         headerPanel.setBorder(BorderFactory.createEmptyBorder());
 
         // create components
-        JLabel taskName = new JLabel(task.getTaskName());
+        String fullTaskName = task.getTaskName();
+        JLabel taskName = new JLabel(fullTaskName);
+        taskName.setToolTipText(fullTaskName);
+        taskName.setPreferredSize(new Dimension(120, 20));
+
         JLabel taskTier = new JLabel();
         taskTier.setIcon(new ImageIcon(getTierIcon(task.getTier())));
         taskTier.setToolTipText("+" + task.getTier());
+
 
         // Create detail panel that will be shown/hidden
         detailPanel = new JPanel();
         detailPanel.setLayout(new GridBagLayout()); // this will probably change
         detailPanel.setBorder(new EmptyBorder(10, 5, 5, 5));
-        detailPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        detailPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
         JTextArea taskDescription = new JTextArea(task.getTaskDescription());
         taskDescription.setLineWrap(true);
@@ -128,6 +136,7 @@ public class DisplayTask extends JPanel {
         headerPanel.add(icon);
         headerPanel.add(taskName);
         headerPanel.add(taskTier);
+        headerPanel.add(toggleArrow);
 
         // Add mouse listener to the main content panel
         headerPanel.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -158,6 +167,7 @@ public class DisplayTask extends JPanel {
     private void toggleDetailPanel() {
         expanded = !expanded;
         detailPanel.setVisible(expanded);
+        toggleArrow.setIcon(expanded ? new ImageIcon(downArrow) : new ImageIcon(rightArrow));
         revalidate();
         repaint();
 

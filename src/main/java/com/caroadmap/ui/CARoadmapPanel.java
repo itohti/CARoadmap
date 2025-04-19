@@ -1,6 +1,8 @@
 package com.caroadmap.ui;
 
+import com.caroadmap.CARoadmapPlugin;
 import com.caroadmap.data.RecommendTasks;
+import com.caroadmap.data.SortingType;
 import com.caroadmap.data.Task;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +11,7 @@ import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.util.ImageUtil;
 
 import javax.inject.Inject;
 import javax.swing.*;
@@ -16,6 +19,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 @Slf4j
 public class CARoadmapPanel extends PluginPanel{
@@ -26,6 +30,7 @@ public class CARoadmapPanel extends PluginPanel{
     private String username;
     private JPanel taskContainer;
     private SpriteManager spriteManager;
+    private boolean ascending = true;
     @Inject
     public CARoadmapPanel(SpriteManager spriteManager) {
         super(false);
@@ -40,7 +45,60 @@ public class CARoadmapPanel extends PluginPanel{
         // setting up title label
         JLabel titleLabel = new JLabel("CA Roadmap");
         titleLabel.setFont(FontManager.getRunescapeBoldFont());
-        JButton recommendationBtn = new JButton("Refresh Recommendations");
+
+        JPanel toolbar = new JPanel();
+        toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.X_AXIS));
+        toolbar.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        toolbar.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+        JLabel taskHeader = new JLabel("Recommended Tasks: ");
+        taskHeader.setFont(FontManager.getRunescapeBoldFont());
+
+        final BufferedImage refresh = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/update_icon.png");
+        JComboBox<String> sortDropdown = getSortByMenu();
+        JButton recommendationBtn = getRecommendationBtn(refresh);
+        final BufferedImage ascendingIcon = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/a-z.png");
+        final BufferedImage descendingIcon = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/z-a.png");
+        JButton sortingButton = getSortingButton(ascendingIcon, descendingIcon);
+
+        toolbar.add(sortDropdown);
+        toolbar.add(sortingButton);
+        toolbar.add(recommendationBtn);
+
+        this.taskContainer = new JPanel();
+        taskContainer.setLayout(new BoxLayout(taskContainer, BoxLayout.Y_AXIS));
+        taskContainer.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+        taskContainer.add(Box.createVerticalGlue());
+
+        JScrollPane scrollPane = new JScrollPane(taskContainer);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        this.add(titleLabel);
+        this.add(toolbar);
+        this.add(Box.createRigidArea(new Dimension(0,10)));
+        this.add(taskHeader);
+        this.add(scrollPane);
+    }
+
+    private JButton getSortingButton(BufferedImage ascendingIcon, BufferedImage descendingIcon) {
+        JButton acnOrDsc = new JButton(new ImageIcon(ascendingIcon));
+        acnOrDsc.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                ascending = !ascending;
+                acnOrDsc.setIcon(ascending ? new ImageIcon(ascendingIcon) : new ImageIcon(descendingIcon));
+                acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
+                recommendTasks.setAscending(!recommendTasks.isAscending());
+                recommendTasks.getRecommendations(username, 1014);
+                refresh(username);
+            }
+        });
+        acnOrDsc.setPreferredSize(new Dimension(24, 24));
+        return acnOrDsc;
+    }
+
+    private JButton getRecommendationBtn(BufferedImage refresh) {
+        JButton recommendationBtn = new JButton(new ImageIcon(refresh));
         recommendationBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -52,22 +110,25 @@ public class CARoadmapPanel extends PluginPanel{
                 }
             }
         });
+        recommendationBtn.setPreferredSize(new Dimension(24, 24));
+        recommendationBtn.setToolTipText("Refresh Recommendations");
+        return recommendationBtn;
+    }
 
-        JLabel taskHeader = new JLabel("Combat Achievements To Complete: ");
-        taskHeader.setFont(FontManager.getRunescapeBoldFont());
-        this.taskContainer = new JPanel();
-        taskContainer.setLayout(new BoxLayout(taskContainer, BoxLayout.Y_AXIS));
-        taskContainer.setBorder(new EmptyBorder(5, 5, 5, 5));
+    private JComboBox<String> getSortByMenu() {
+        String[] options = { "Boss", "Tier", "Score" };
+        JComboBox<String> sortDropdown = new JComboBox<>(options);
+        sortDropdown.addActionListener(e -> {
+            String selected = (String) sortDropdown.getSelectedItem();
+            recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
+            recommendTasks.getRecommendations(username, 1014);
+            refresh(username);
+        });
+        sortDropdown.setMaximumSize(new Dimension(150, 25));
+        sortDropdown.setPreferredSize(new Dimension(150, 25));
+        sortDropdown.setFont(FontManager.getRunescapeSmallFont());
 
-        taskContainer.add(Box.createVerticalGlue());
-
-        JScrollPane scrollPane = new JScrollPane(taskContainer);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        this.add(titleLabel);
-        this.add(recommendationBtn);
-        this.add(Box.createRigidArea(new Dimension(0,10)));
-        this.add(taskHeader);
-        this.add(scrollPane);
+        return sortDropdown;
     }
 
     public void refresh(String username) {
@@ -78,6 +139,7 @@ public class CARoadmapPanel extends PluginPanel{
     public boolean removeTask(String taskName) {
         for (Task task: taskList) {
             if (task.getTaskName().equals(taskName)) {
+                // maybe we can just make sure done tasks are at the bottom so the user can see progress. TODO
                 taskList.remove(task);
                 return true;
             }
