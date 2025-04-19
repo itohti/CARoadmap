@@ -37,6 +37,9 @@ public class DisplayTask extends JPanel {
         BOSS_TO_SKILL_MAP.put("Crystalline Hunllef", HiscoreSkill.THE_GAUNTLET);
         BOSS_TO_SKILL_MAP.put("Corrupted Hunllef", HiscoreSkill.THE_CORRUPTED_GAUNTLET);
         BOSS_TO_SKILL_MAP.put("Moons of Peril", HiscoreSkill.LUNAR_CHESTS);
+        BOSS_TO_SKILL_MAP.put("Fortis Colosseum", HiscoreSkill.SOL_HEREDIT);
+        BOSS_TO_SKILL_MAP.put("The Nightmare", HiscoreSkill.NIGHTMARE);
+        BOSS_TO_SKILL_MAP.put("Leviathan", HiscoreSkill.THE_LEVIATHAN);
     }
 
     static {
@@ -58,7 +61,8 @@ public class DisplayTask extends JPanel {
                     skill = HiscoreSkill.valueOf(task.getBoss().toUpperCase()
                             .replace(" ", "_")
                             .replace("'", "")
-                            .replace("-", "_"));
+                            .replace("-", "_")
+                            .replace(":", ""));
                 }
                 catch (IllegalArgumentException e) {
                     log.info("Could not find skill for {}", task.getBoss());

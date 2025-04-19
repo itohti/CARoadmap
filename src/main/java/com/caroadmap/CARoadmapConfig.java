@@ -8,12 +8,18 @@ import net.runelite.client.config.ConfigItem;
 public interface CARoadmapConfig extends Config
 {
 	@ConfigItem(
-		keyName = "taskPreference",
-		name = "Task Preference",
-		description = "Type the task type from the most preferred to least preferred"
+			keyName = "apiKey",
+			name = "API Key",
+			description = "Paste the API key from caroadmap.io here"
 	)
-	default String taskPreference()
-	{
-		return "kill count, mechanical, restriction, perfection, stamina, speed";
+	default String apiKey() {
+		return "";
 	}
+
+    @ConfigItem(
+            keyName = "apiKey",
+            name = "",
+            description = ""
+    )
+    void setApiKey(String key);
 }

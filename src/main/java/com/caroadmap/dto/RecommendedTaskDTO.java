@@ -3,7 +3,6 @@ package com.caroadmap.dto;
 import lombok.Data;
 
 @Data
-
 public class RecommendedTaskDTO {
     private String description;
     private Double estimated_time;
