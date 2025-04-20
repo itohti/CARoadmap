@@ -1,12 +1,18 @@
 package com.caroadmap.data;
 
+import lombok.Getter;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class Boss {
+    @Getter
     private String boss;
+    @Getter
     private int kc;
+    @Getter
     private double ehb;
+    @Getter
     private double killTime;
 
     public Boss (String boss, int kc, double ehb) {
@@ -28,7 +34,18 @@ public class Boss {
         return ret;
     }
 
-    public String getBossName() {
-        return boss;
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        Boss otherBoss = (Boss) obj;
+
+        return (this.boss.equals(otherBoss.getBoss())
+                && this.kc == otherBoss.getKc()
+                && this.ehb == otherBoss.getEhb()
+                && this.killTime == otherBoss.getKillTime()
+        );
     }
 }

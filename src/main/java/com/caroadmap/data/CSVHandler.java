@@ -1,5 +1,6 @@
 package com.caroadmap.data;
 
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
 import org.apache.commons.csv.CSVFormat;
@@ -9,12 +10,13 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
+@Slf4j
 public class CSVHandler {
     private final String csvPath;
     /**
      * Creates a CSV file if it doesn't already exist.
      */
-    public CSVHandler(String username) {
+    public CSVHandler(String username, String fileName) {
         File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
         if (!pluginDir.exists()) {
             pluginDir.mkdirs();
@@ -22,12 +24,12 @@ public class CSVHandler {
 
         String cleaned = username.replace(" ", "_");
 
-        File csvFile = new File(pluginDir, String.format("recommendations_list_%s.csv", cleaned));
+        File csvFile = new File(pluginDir, String.format("%s_%s.csv", fileName, cleaned));
         if (!csvFile.exists()) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile))) {
                 writer.write("Boss,Task Name,Task Description,Type,Tier,Done,Score\n");
             } catch (IOException e) {
-                System.err.println("Could not create reader and writer for csv file.");
+                log.error("Could not create reader and writer for csv file: ", e);
             }
         }
 
@@ -61,7 +63,7 @@ public class CSVHandler {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Could not read csv file.");
+            log.error("Could not read csv file: ", e);
         }
         return null;
     }
@@ -84,7 +86,7 @@ public class CSVHandler {
             Iterator<CSVRecord> iterator = records.iterator();
 
             // Write headers to the temporary file
-            writer.write("Boss,Task Name,Task Description,Type,Tier,Done\n");
+            writer.write("Boss,Task Name,Task Description,Type,Tier,Done,Score\n");
 
             while (iterator.hasNext()) {
                 CSVRecord record = iterator.next();
@@ -97,18 +99,21 @@ public class CSVHandler {
                         record.get(CSVColumns.DONE)
                 );
                 if (readTask.getTaskName().equals(taskName)) {
-                    readTask.setDone(true);
                     // Update the task.
-                    writer.write(readTask.toString());
+                    readTask.setDone(true);
+                    readTask.setScore(Double.parseDouble(record.get(CSVColumns.SCORE)));
+
+                    writer.write(String.format("%s,%f", readTask.toString(), readTask.getScore()));
+
                     writer.newLine();
                     isUpdated = true;
                 } else {
-                    writer.write(readTask.toString());
+                    writer.write(String.format("%s,%f", readTask.toString(), readTask.getScore()));
                     writer.newLine();
                 }
             }
         } catch (IOException e) {
-            System.err.println("Could not read or write to csv file: " + csvPath);
+            log.error("Could not read or write to csv file: {}", csvPath);
         }
 
         if (isUpdated) {
@@ -120,15 +125,14 @@ public class CSVHandler {
                     out.write(buf, 0, len);
                 }
 
-                in.close();
                 out.flush();
-                out.close();
-                if (!tmp.delete()) {
-                    // revisit this.
-                    System.out.println("Could not delete tmp file...");
-                }
             } catch (IOException ce) {
-                System.err.println("Manual file copy also failed: " + ce.getMessage());
+                log.error("Manual file copy also failed: ", ce);
+            }
+
+            if (!tmp.delete()) {
+                // revisit this.
+                log.info("Could not delete tmp file...");
             }
         }
     }
@@ -142,7 +146,7 @@ public class CSVHandler {
                 writer.write(task.toString());
                 writer.newLine();
             } catch (IOException e) {
-                System.err.println("Could not write to csv file: " + csvPath);
+                log.error("Could not write to csv file: {}", csvPath);
             }
         }
         else {
@@ -150,7 +154,7 @@ public class CSVHandler {
                 writer.write(String.format("%s,%f", task.toString(), task.getScore()));
                 writer.newLine();
             } catch (IOException e) {
-                System.err.println("Could not write to csv file: " + csvPath);
+                log.info("Could not write to csv file: {}", csvPath);
             }
         }
     }

@@ -8,8 +8,8 @@ import com.caroadmap.ui.CARoadmapPanel;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
+import net.runelite.client.RuneLite;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
@@ -35,6 +35,7 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -73,7 +74,7 @@ public class CARoadmapPlugin extends Plugin
 	private SpriteManager spriteManager;
 
 	private CARoadmapPanel caRoadmapPanel;
-	private CSVHandler csvHandler;
+	private CSVHandler recommendationsCSV;
 	private NavigationButton navButton;
 
     private PlayerDataBatcher firestore;
@@ -169,20 +170,14 @@ public class CARoadmapPlugin extends Plugin
 
 						if (matcher.find()) {
 							String taskName = matcher.group(1).trim();
-							log.info("Extracted task name: {}", taskName);
 
-							// updates backend
-							boolean responseResult = server.updatePlayerTask(username, taskName);
-							if (responseResult) {
-								log.info("Successfully updated player task.");
-							}
-							csvHandler.updateTask(taskName);
+							recommendationsCSV.updateTask(taskName);
 
 							boolean removed = caRoadmapPanel.taskCompleted(taskName);
 							if (removed) {
 								log.info("Successfully marked task as complete");
 							}
-							caRoadmapPanel.updateTaskDisplay();
+							caRoadmapPanel.refresh();
 						}
 					}
 					catch (Exception e) {
@@ -212,8 +207,8 @@ public class CARoadmapPlugin extends Plugin
 		this.username = getUsername();
 
 		// Initialize classes that are dependent on username
-		this.csvHandler = new CSVHandler(username);
-		this.recommendTasks = new RecommendTasks(server, csvHandler);
+		this.recommendationsCSV = new CSVHandler(username, "recommendations_list");
+		this.recommendTasks = new RecommendTasks(server, recommendationsCSV);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
 
@@ -232,9 +227,11 @@ public class CARoadmapPlugin extends Plugin
 			Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
 			for (Boss boss : wiseOldManData) {
 				// before we send it to firestore get pb.
-				Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBossName().toLowerCase(), double.class);
+				Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBoss().toLowerCase(), double.class);
 				boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
-				firestore.addBossToBatch(boss);
+				if (!firestore.addBossToBatch(boss)) {
+					log.error("Could not add boss [{}] to batch", boss.getBoss());
+				}
 			}
 		});
 
@@ -243,6 +240,14 @@ public class CARoadmapPlugin extends Plugin
 			boolean result = firestore.sendData();
 			if (!result) {
 				log.error("Did not upload player data to database");
+			}
+			else {
+				File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
+				File cacheFile = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
+				if (!cacheFile.exists()) {
+					log.info("Caching player data from firestore.");
+					server.fetchAndCachePlayerData(username);
+				}
 			}
 		});
 
@@ -289,7 +294,7 @@ public class CARoadmapPlugin extends Plugin
 				firestoreExecutor.submit(() -> {
 					boolean result = firestore.addTaskToBatch(taskObject);
 					if (!result) {
-						log.error("Could not add task to batch");
+						log.error("Could not add task: [{}] to batch", taskObject.getTaskName());
 					}
 				});
 			}
