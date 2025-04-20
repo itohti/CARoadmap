@@ -6,6 +6,7 @@ import lombok.Setter;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class Task {
     @Getter
@@ -104,6 +105,11 @@ public class Task {
                 this.type == otherTask.type &&
                 this.tier == otherTask.tier &&
                 this.done == otherTask.done;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(taskName);
     }
 
     public static Comparator<Task> byScore() {

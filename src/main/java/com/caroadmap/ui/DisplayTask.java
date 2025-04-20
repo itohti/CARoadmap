@@ -6,8 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.hiscore.HiscoreClient;
-import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
 import net.runelite.client.util.ImageUtil;
 
@@ -92,6 +90,10 @@ public class DisplayTask extends JPanel {
         headerPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         headerPanel.setBorder(BorderFactory.createEmptyBorder());
 
+        if (task.isDone()) {
+            headerPanel.setBackground(new Color(0x006600));
+        }
+
         // create components
         String fullTaskName = task.getTaskName();
         JLabel taskName = new JLabel(fullTaskName);
@@ -151,12 +153,12 @@ public class DisplayTask extends JPanel {
 
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                headerPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+                headerPanel.setBackground(task.isDone() ? new Color(0x006600) : ColorScheme.DARK_GRAY_COLOR);
             }
 
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
-                headerPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                headerPanel.setBackground(task.isDone() ? new Color(0x006600) : ColorScheme.DARKER_GRAY_COLOR);
             }
         });
 

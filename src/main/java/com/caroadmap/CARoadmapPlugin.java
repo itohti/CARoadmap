@@ -9,6 +9,7 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
@@ -38,6 +39,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @PluginDescriptor(
@@ -70,6 +73,7 @@ public class CARoadmapPlugin extends Plugin
 	private SpriteManager spriteManager;
 
 	private CARoadmapPanel caRoadmapPanel;
+	private CSVHandler csvHandler;
 	private NavigationButton navButton;
 
     private PlayerDataBatcher firestore;
@@ -79,6 +83,7 @@ public class CARoadmapPlugin extends Plugin
 
 	private RecommendTasks recommendTasks;
 	private String username;
+	private boolean hasFetched = false;
 	private String apiKey;
 
 	private ExecutorService firestoreExecutor;
@@ -132,9 +137,14 @@ public class CARoadmapPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
+		if (gameStateChanged.getGameState() == GameState.LOGGED_IN && !hasFetched)
 		{
+			hasFetched = true;
 			getData = true;
+		}
+		else if (gameStateChanged.getGameState() == GameState.LOGIN_SCREEN) {
+			log.info("Fetching because user is relogging in.");
+			hasFetched = false;
 		}
 	}
 
@@ -152,31 +162,49 @@ public class CARoadmapPlugin extends Plugin
 		if (event.getType() == ChatMessageType.GAMEMESSAGE) {
 			String msg = event.getMessage();
 			if (msg.contains("combat task") && msg.contains("completed")) {
-				try {
-					String taskNameAndPoints = msg.split(":")[1];
-					String taskName = taskNameAndPoints.split("\\(")[0].trim();
-					log.info(taskName);
-					boolean result = caRoadmapPanel.removeTask(taskName);
-					if (!result) {
-						log.info("Did not find task name in recommended list.");
+				csvHandlerExecutor.submit(() -> {
+					try {
+						Pattern pattern = Pattern.compile("combat task: <col=\\w+>(.*?)</col>");
+						Matcher matcher = pattern.matcher(msg);
+
+						if (matcher.find()) {
+							String taskName = matcher.group(1).trim();
+							log.info("Extracted task name: {}", taskName);
+
+							// updates backend
+							boolean responseResult = server.updatePlayerTask(username, taskName);
+							if (responseResult) {
+								log.info("Successfully updated player task.");
+							}
+							csvHandler.updateTask(taskName);
+
+							boolean removed = caRoadmapPanel.taskCompleted(taskName);
+							if (removed) {
+								log.info("Successfully marked task as complete");
+							}
+							caRoadmapPanel.updateTaskDisplay();
+						}
 					}
-					// updates backend
-					server.updatePlayerTask(username, taskName);
-					caRoadmapPanel.removeTask(taskName);
-					caRoadmapPanel.updateTaskDisplay();
-				}
-				catch (Exception e) {
-					log.error("Something went wrong with getting task name", e);
-				}
+					catch (Exception e) {
+						log.error("Something went wrong with getting task name", e);
+					}
+				});
 			}
 		}
 	}
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.COMBAT_INTERFACE) {
-			// work on this after you bond up your account lol
+		// we can see if the user completed a task with the widget pop up now.
+		if (event.getGroupId() == 660) {
+			Widget popupTextWidget = client.getWidget(660, 8);
+			if (popupTextWidget != null && popupTextWidget.getText() != null) {
+				String rawText = popupTextWidget.getText();
+				log.info("Combat task popup text: {}", rawText);
 
+				String cleanText = rawText.replaceAll("<[^>]+>", "").trim();
+				log.info("Cleaned task text: {}", cleanText);
+			}
 		}
 	}
 
@@ -184,10 +212,11 @@ public class CARoadmapPlugin extends Plugin
 		this.username = getUsername();
 
 		// Initialize classes that are dependent on username
-        CSVHandler csvHandler = new CSVHandler(username);
+		this.csvHandler = new CSVHandler(username);
 		this.recommendTasks = new RecommendTasks(server, csvHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
+
 		if (!apiKey.isEmpty()) {
 			server.setApiKey(apiKey);
 		}
@@ -216,13 +245,6 @@ public class CARoadmapPlugin extends Plugin
 				log.error("Did not upload player data to database");
 			}
 		});
-		// get recommendations and store it
-		csvHandlerExecutor.submit(() -> {
-			// threshold is hard coded right now when we start working on the UI fix this TODO
-			recommendTasks.getRecommendations(username, 1014);
-
-			ArrayList<Task> recommendedTasks = recommendTasks.getRecommendedTasks();
-		});
 
 		csvHandlerExecutor.submit(() -> {
 			recommendTasks.getRecommendations(username, 1014);
@@ -230,7 +252,7 @@ public class CARoadmapPlugin extends Plugin
 			SwingUtilities.invokeLater(() -> {
 				if (caRoadmapPanel != null) {
 					caRoadmapPanel.setUsername(username);
-					caRoadmapPanel.refresh(username);
+					caRoadmapPanel.refresh();
 				}
 			});
 		});

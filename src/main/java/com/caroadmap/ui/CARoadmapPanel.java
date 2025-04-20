@@ -21,14 +21,21 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Slf4j
 public class CARoadmapPanel extends PluginPanel{
     @Setter
     private RecommendTasks recommendTasks;
-    private ArrayList<Task> taskList;
+    private ArrayList<Task> recommendedList;
+    private Set<Task> completedList;
     @Setter
     private String username;
-    private JPanel taskContainer;
+    private JPanel recommendedContainer;
+    private JPanel completedContainer;
     private SpriteManager spriteManager;
     private boolean ascending = true;
     @Inject
@@ -36,7 +43,8 @@ public class CARoadmapPanel extends PluginPanel{
         super(false);
         this.recommendTasks = recommendTasks;
         this.spriteManager = spriteManager;
-        this.taskList = new ArrayList<>();
+        this.recommendedList = new ArrayList<>();
+        this.completedList = new HashSet<>();
         // setting up layout
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -51,8 +59,23 @@ public class CARoadmapPanel extends PluginPanel{
         toolbar.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         toolbar.setBorder(new EmptyBorder(5, 5, 5, 5));
 
-        JLabel taskHeader = new JLabel("Recommended Tasks: ");
-        taskHeader.setFont(FontManager.getRunescapeBoldFont());
+        JPanel recommendedTitlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0,0));
+        recommendedTitlePanel.setOpaque(false);
+
+        JLabel recommendedTitle = new JLabel("Recommended: ");
+        recommendedTitle.setFont(FontManager.getRunescapeBoldFont());
+        recommendedTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        recommendedTitlePanel.add(recommendedTitle);
+        recommendedTitlePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, recommendedTitle.getPreferredSize().height));
+
+        JPanel completedTitlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0,0));
+        completedTitlePanel.setOpaque(false);
+
+        JLabel completedTitle = new JLabel("Completed: ");
+        completedTitle.setFont(FontManager.getRunescapeBoldFont());
+        completedTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        completedTitlePanel.add(completedTitle);
+        completedTitlePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, completedTitle.getPreferredSize().height));
 
         final BufferedImage refresh = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/update_icon.png");
         JComboBox<String> sortDropdown = getSortByMenu();
@@ -65,19 +88,36 @@ public class CARoadmapPanel extends PluginPanel{
         toolbar.add(sortingButton);
         toolbar.add(recommendationBtn);
 
-        this.taskContainer = new JPanel();
-        taskContainer.setLayout(new BoxLayout(taskContainer, BoxLayout.Y_AXIS));
-        taskContainer.setBorder(new EmptyBorder(5, 5, 5, 5));
+        this.recommendedContainer = new JPanel();
+        recommendedContainer.setLayout(new BoxLayout(recommendedContainer, BoxLayout.Y_AXIS));
+        recommendedContainer.setBorder(new EmptyBorder(5, 5, 5, 5));
 
-        taskContainer.add(Box.createVerticalGlue());
+        recommendedContainer.add(Box.createVerticalGlue());
 
-        JScrollPane scrollPane = new JScrollPane(taskContainer);
+        JScrollPane scrollPane = new JScrollPane(recommendedContainer);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setPreferredSize(new Dimension(0, 300));
+        scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 300));
+
+        this.completedContainer = new JPanel();
+        completedContainer.setLayout(new BoxLayout(completedContainer, BoxLayout.Y_AXIS));
+        completedContainer.setBorder(new EmptyBorder(5,5,5,5));
+
+        completedContainer.add(Box.createVerticalGlue());
+
+        JScrollPane completedScroll = new JScrollPane(completedContainer);
+        completedScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        completedScroll.setPreferredSize(new Dimension(0, 300));
+        completedScroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 300));
+
         this.add(titleLabel);
         this.add(toolbar);
         this.add(Box.createRigidArea(new Dimension(0,10)));
-        this.add(taskHeader);
+        this.add(recommendedTitlePanel);
         this.add(scrollPane);
+        this.add(Box.createRigidArea(new Dimension(0,10)));
+        this.add(completedTitlePanel);
+        this.add(completedScroll);
     }
 
     private JButton getSortingButton(BufferedImage ascendingIcon, BufferedImage descendingIcon) {
@@ -90,7 +130,7 @@ public class CARoadmapPanel extends PluginPanel{
                 acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
                 recommendTasks.setAscending(!recommendTasks.isAscending());
                 recommendTasks.getRecommendations(username, 1014);
-                refresh(username);
+                refresh();
             }
         });
         acnOrDsc.setPreferredSize(new Dimension(24, 24));
@@ -103,7 +143,7 @@ public class CARoadmapPanel extends PluginPanel{
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (username != null) {
-                    refresh(username);
+                    refresh();
                 }
                 else {
                     log.error("Could not fetch recommendations. You need to be logged in.");
@@ -127,7 +167,7 @@ public class CARoadmapPanel extends PluginPanel{
                 recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
             }
             recommendTasks.getRecommendations(username, 1014);
-            refresh(username);
+            refresh();
         });
         sortDropdown.setMaximumSize(new Dimension(150, 25));
         sortDropdown.setPreferredSize(new Dimension(150, 25));
@@ -136,30 +176,52 @@ public class CARoadmapPanel extends PluginPanel{
         return sortDropdown;
     }
 
-    public void refresh(String username) {
-        this.taskList = recommendTasks.getRecommendedTasks();
+    public void refresh() {
+        this.recommendedList = recommendTasks.getRecommendedTasks();
+        separateCompletedTasks();
         updateTaskDisplay();
     }
 
-    public boolean removeTask(String taskName) {
-        for (Task task: taskList) {
+    public boolean taskCompleted(String taskName) {
+        Task toRemove = null;
+        for (Task task: recommendedList) {
             if (task.getTaskName().equals(taskName)) {
-                // maybe we can just make sure done tasks are at the bottom so the user can see progress. TODO
-                taskList.remove(task);
-                return true;
+                toRemove = task;
+                completedList.add(task);
             }
+        }
+
+        if (toRemove != null) {
+            recommendedList.remove(toRemove);
+            return true;
         }
 
         return false;
     }
 
+    public void separateCompletedTasks() {
+        List<Task> completed = recommendedList.stream()
+                .filter(Task::isDone)
+                .collect(Collectors.toList());
+
+        recommendedList.removeAll(completed);
+        completedList.addAll(completed);
+    }
+
     public void updateTaskDisplay() {
-        taskContainer.removeAll();
-        for (Task task : taskList) {
-            taskContainer.add(new DisplayTask(task, spriteManager));
-            taskContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+        recommendedContainer.removeAll();
+        completedContainer.removeAll();
+        for (Task task : recommendedList) {
+            recommendedContainer.add(new DisplayTask(task, spriteManager));
+            recommendedContainer.add(Box.createRigidArea(new Dimension(0, 5)));
         }
-        taskContainer.revalidate();
-        taskContainer.repaint();
+        for (Task task: completedList) {
+            completedContainer.add(new DisplayTask(task, spriteManager));
+            completedContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+        }
+        recommendedContainer.revalidate();
+        recommendedContainer.repaint();
+        completedContainer.revalidate();
+        completedContainer.repaint();
     }
 }
