@@ -69,7 +69,7 @@ public class CSVHandler {
     /**
      * This will update a Task based on the task passed in.
      */
-    public void updateTask(Task task) {
+    public void updateTask(String taskName) {
         boolean isUpdated = false;
         File tmp = new File("tmp.csv");
         File csvFile = new File(csvPath);
@@ -96,9 +96,10 @@ public class CSVHandler {
                         record.get(CSVColumns.TIER),
                         record.get(CSVColumns.DONE)
                 );
-                if (readTask.getTaskName().equals(task.getTaskName())) {
+                if (readTask.getTaskName().equals(taskName)) {
+                    readTask.setDone(true);
                     // Update the task.
-                    writer.write(task.toString());
+                    writer.write(readTask.toString());
                     writer.newLine();
                     isUpdated = true;
                 } else {
