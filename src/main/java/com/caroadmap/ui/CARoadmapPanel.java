@@ -187,6 +187,7 @@ public class CARoadmapPanel extends PluginPanel{
         Task toRemove = null;
         for (Task task: recommendedList) {
             if (task.getTaskName().equals(taskName)) {
+                task.setDone(true);
                 toRemove = task;
                 completedList.add(task);
             }
