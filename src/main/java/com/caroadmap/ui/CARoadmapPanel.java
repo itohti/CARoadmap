@@ -31,17 +31,16 @@ public class CARoadmapPanel extends PluginPanel{
     @Setter
     private RecommendTasks recommendTasks;
     private ArrayList<Task> recommendedList;
-    private Set<Task> completedList;
+    private final Set<Task> completedList;
     @Setter
     private String username;
-    private JPanel recommendedContainer;
-    private JPanel completedContainer;
-    private SpriteManager spriteManager;
+    private final JPanel recommendedContainer;
+    private final JPanel completedContainer;
+    private final SpriteManager spriteManager;
     private boolean ascending = true;
     @Inject
     public CARoadmapPanel(SpriteManager spriteManager) {
         super(false);
-        this.recommendTasks = recommendTasks;
         this.spriteManager = spriteManager;
         this.recommendedList = new ArrayList<>();
         this.completedList = new HashSet<>();
@@ -160,14 +159,16 @@ public class CARoadmapPanel extends PluginPanel{
         JComboBox<String> sortDropdown = new JComboBox<>(options);
         sortDropdown.addActionListener(e -> {
             String selected = (String) sortDropdown.getSelectedItem();
-            if (selected.equals("Recommended")) {
-                recommendTasks.setSortingType(SortingType.valueOf("SCORE"));
+            if (selected != null) {
+                if (selected.equals("Recommended")) {
+                    recommendTasks.setSortingType(SortingType.valueOf("SCORE"));
+                }
+                else {
+                    recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
+                }
+                recommendTasks.getRecommendations(username, 1014);
+                refresh();
             }
-            else {
-                recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
-            }
-            recommendTasks.getRecommendations(username, 1014);
-            refresh();
         });
         sortDropdown.setMaximumSize(new Dimension(150, 25));
         sortDropdown.setPreferredSize(new Dimension(150, 25));

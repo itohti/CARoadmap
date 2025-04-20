@@ -1,6 +1,7 @@
 package com.caroadmap.api;
 
 import com.caroadmap.CARoadmapConfig;
+import com.caroadmap.data.CSVHandler;
 import com.caroadmap.dto.GetRecommendationsResponse;
 import com.caroadmap.dto.RegisterDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -9,11 +10,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.RuneLite;
 import net.runelite.client.config.ConfigManager;
 import org.apache.http.protocol.HTTP;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -35,6 +39,8 @@ public class CARoadmapServer {
 
     @Inject
     private ConfigManager configManager;
+
+    private static final File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
 
     @Inject
     public CARoadmapServer() {
@@ -60,6 +66,29 @@ public class CARoadmapServer {
         }
         catch (IOException | InterruptedException e) {
             log.error("Could not register user with error: ", e);
+        }
+    }
+
+    public void fetchAndCachePlayerData(String username) {
+        File cacheFile = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
+        try (FileWriter writer = new FileWriter(cacheFile)){
+            String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(String.format("http://osrs.izdartohti.org/playerdata?username=%s", encodedUsername)))
+                    .header("X-API-Key", this.apiKey)
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                writer.write((response.body()));
+            }
+            else {
+                log.warn("Failed with {}", response.statusCode());
+            }
+        }
+        catch (IOException | InterruptedException e) {
+            log.error("Could not fetch player data: ", e);
         }
     }
 
