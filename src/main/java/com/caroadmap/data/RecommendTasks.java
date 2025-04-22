@@ -6,6 +6,7 @@ import com.caroadmap.dto.RecommendedTaskDTO;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.config.ConfigManager;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 
@@ -25,16 +26,28 @@ public class RecommendTasks {
     @Setter
     private SortingType sortingType = SortingType.SCORE;
     @Setter
-    @Getter
-    private boolean ascending;
+    private Boolean ascending = true;
 
     private final CARoadmapServer server;
 
     @Inject
-    public RecommendTasks(CARoadmapServer server, CSVHandler csvHandler) {
+    public RecommendTasks(CARoadmapServer server, CSVHandler csvHandler, ConfigManager configManager) {
+        this.sortingType = configManager.getConfiguration("CARoadmap", "sortingType", SortingType.class);
+        if (sortingType == null) {
+            sortingType = SortingType.SCORE;
+        }
+
+        this.ascending = configManager.getConfiguration("CARoadmap", "isAscending", Boolean.class);
+        if (ascending == null) {
+            ascending = true;
+        }
         this.recommendedTasks = new ArrayList<>();
         this.csvHandler = csvHandler;
         this.server = server;
+    }
+
+    public boolean isAscending() {
+        return ascending;
     }
 
     /**
@@ -56,7 +69,6 @@ public class RecommendTasks {
 
     private ArrayList<Task> tryLoadLocalRecommendations() {
         ArrayList<Task> taskList = new ArrayList<>();
-
         try (Reader reader = new FileReader(csvHandler.getCsvPath(), StandardCharsets.UTF_8)) {
             Iterable<CSVRecord> records = CSVFormat.Builder.create(CSVFormat.DEFAULT)
                     .setHeader(CSVColumns.class)
@@ -81,7 +93,7 @@ public class RecommendTasks {
             }
 
             sortRecommendations(taskList);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.warn("Could not load local recommendation list. Will try server next.", e);
         }
 
