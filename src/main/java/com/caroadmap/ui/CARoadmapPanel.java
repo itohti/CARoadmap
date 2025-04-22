@@ -1,5 +1,6 @@
 package com.caroadmap.ui;
 
+import com.caroadmap.CARoadmapConfig;
 import com.caroadmap.CARoadmapPlugin;
 import com.caroadmap.data.RecommendTasks;
 import com.caroadmap.data.SortingType;
@@ -7,6 +8,8 @@ import com.caroadmap.data.Task;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import net.runelite.api.Client;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
@@ -30,18 +33,34 @@ import java.util.stream.Collectors;
 public class CARoadmapPanel extends PluginPanel{
     @Setter
     private RecommendTasks recommendTasks;
-    private ArrayList<Task> recommendedList;
-    private final Set<Task> completedList;
     @Setter
     private String username;
+    private ConfigManager configManager;
+    private ArrayList<Task> recommendedList;
+    private final Set<Task> completedList;
     private final JPanel recommendedContainer;
     private final JPanel completedContainer;
     private final SpriteManager spriteManager;
-    private boolean ascending = true;
+    private Boolean ascending;
+    private SortingType sortingType;
     @Inject
-    public CARoadmapPanel(SpriteManager spriteManager) {
+    public CARoadmapPanel(SpriteManager spriteManager, ConfigManager configManager) {
         super(false);
         this.spriteManager = spriteManager;
+        this.configManager = configManager;
+
+        this.ascending = configManager.getConfiguration("CARoadmap", "isAscending", Boolean.class);
+        if (this.ascending == null) {
+            this.ascending = true;
+            configManager.setConfiguration("CARoadmap", "isAscending", this.ascending);
+        }
+
+        this.sortingType = configManager.getConfiguration("CARoadmap", "sortingType", SortingType.class);
+        if (this.sortingType == null) {
+            this.sortingType = SortingType.SCORE;
+            configManager.setConfiguration("CARoadmap", "sortingType", this.sortingType);
+        }
+
         this.recommendedList = new ArrayList<>();
         this.completedList = new HashSet<>();
         // setting up layout
@@ -120,11 +139,16 @@ public class CARoadmapPanel extends PluginPanel{
     }
 
     private JButton getSortingButton(BufferedImage ascendingIcon, BufferedImage descendingIcon) {
-        JButton acnOrDsc = new JButton(new ImageIcon(ascendingIcon));
+        JButton acnOrDsc = new JButton(new ImageIcon(ascending != null && ascending ? ascendingIcon : descendingIcon));
+        acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
         acnOrDsc.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                if (ascending == null) {
+                    ascending = true;
+                }
                 ascending = !ascending;
+                configManager.setConfiguration("CARoadmap", "isAscending", ascending);
                 acnOrDsc.setIcon(ascending ? new ImageIcon(ascendingIcon) : new ImageIcon(descendingIcon));
                 acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
                 recommendTasks.setAscending(!recommendTasks.isAscending());
@@ -157,14 +181,27 @@ public class CARoadmapPanel extends PluginPanel{
     private JComboBox<String> getSortByMenu() {
         String[] options = { "Recommended", "Tier", "Boss" };
         JComboBox<String> sortDropdown = new JComboBox<>(options);
+        if (sortingType != null) {
+            if (sortingType == SortingType.SCORE) {
+                sortDropdown.setSelectedItem("Recommended");
+            }
+            else if (sortingType == SortingType.TIER) {
+                sortDropdown.setSelectedItem("Tier");
+            }
+            else if (sortingType == SortingType.BOSS) {
+                sortDropdown.setSelectedItem("Boss");
+            }
+        }
         sortDropdown.addActionListener(e -> {
             String selected = (String) sortDropdown.getSelectedItem();
             if (selected != null) {
                 if (selected.equals("Recommended")) {
                     recommendTasks.setSortingType(SortingType.valueOf("SCORE"));
+                    configManager.setConfiguration("CARoadmap", "sortingType", SortingType.valueOf("SCORE"));
                 }
                 else {
                     recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
+                    configManager.setConfiguration("CARoadmap", "sortingType", SortingType.valueOf(selected.toUpperCase()));
                 }
                 recommendTasks.getRecommendations(username, 1014);
                 refresh();

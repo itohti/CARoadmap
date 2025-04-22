@@ -94,7 +94,7 @@ public class CARoadmapPlugin extends Plugin
 	protected void startUp() throws Exception
 	{
 		this.apiKey = config.apiKey();
-		this.caRoadmapPanel = new CARoadmapPanel(spriteManager);
+		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			log.error("Could not load icon");
@@ -208,7 +208,7 @@ public class CARoadmapPlugin extends Plugin
 
 		// Initialize classes that are dependent on username
 		this.recommendationsCSV = new CSVHandler(username, "recommendations_list");
-		this.recommendTasks = new RecommendTasks(server, recommendationsCSV);
+		this.recommendTasks = new RecommendTasks(server, recommendationsCSV, configManager);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
 
