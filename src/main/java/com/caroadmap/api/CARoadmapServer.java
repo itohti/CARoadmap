@@ -154,15 +154,23 @@ public class CARoadmapServer {
     }
 
     public GetRecommendationsResponse getRecommendations(String username, int pointThreshold) throws IOException, InterruptedException {
-        String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("https://osrs.izdartohti.org/get_recommendations?username=%s&point_threshold=%d", encodedUsername, pointThreshold)))
-                .header("X-API-Key", this.apiKey)
-                .GET()
-                .build();
-
         try {
+            String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(String.format("https://osrs.izdartohti.org/get_recommendations?username=%s&point_threshold=%d", encodedUsername, pointThreshold)))
+                    .header("X-API-Key", this.apiKey)
+                    .GET()
+                    .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 403) {
+                register(username);
+                request = HttpRequest.newBuilder()
+                        .uri(URI.create(String.format("https://osrs.izdartohti.org/get_recommendations?username=%s&point_threshold=%d", encodedUsername, pointThreshold)))
+                        .header("X-API-Key", this.apiKey)
+                        .GET()
+                        .build();
+                response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            }
             ObjectMapper mapper = new ObjectMapper();
             mapper.configure(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS.mappedFeature(), true);
             return mapper.readValue(response.body(), GetRecommendationsResponse.class);

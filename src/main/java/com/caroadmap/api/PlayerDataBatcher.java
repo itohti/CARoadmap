@@ -57,8 +57,8 @@ public class PlayerDataBatcher {
      */
     public boolean addSkillToBatch(String skillName, int level) {
         Map<String, Object> skillMap = new HashMap<>();
-        skillMap.put(skillName, level);
         skillMap.put("skill_name", skillName);
+        skillMap.put("level", level);
         try {
             batch.get("combat_stats").add(skillMap);
             return true;

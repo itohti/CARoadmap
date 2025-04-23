@@ -104,6 +104,9 @@ public class RecommendTasks {
         ArrayList<Task> recommendedTasks = new ArrayList<>();
         try {
             GetRecommendationsResponse recommendationsList = server.getRecommendations(username, pointThreshold);
+            if (recommendationsList.getError() != null) {
+                log.error("There was an error on the server side: {}", recommendationsList.getError());
+            }
 
             for (RecommendedTaskDTO task : recommendationsList.recommended_tasks) {
                 try {
