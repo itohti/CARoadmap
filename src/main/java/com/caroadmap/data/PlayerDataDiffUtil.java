@@ -62,10 +62,10 @@ public class PlayerDataDiffUtil {
         for (Object obj : rawList) {
             if (obj instanceof Map) {
                 Map<?, ?> rawMap = (Map<?, ?>) obj;
-                for (Map.Entry<?, ?> e : rawMap.entrySet()) {
-                    if (e.getKey() instanceof String && e.getValue() instanceof Integer) {
-                        map.put((String) e.getKey(), (Integer) e.getValue());
-                    }
+                Object name = rawMap.get("skill_name");
+                Object level = rawMap.get("level");
+                if (name instanceof String && level instanceof Integer) {
+                    map.put((String) name, (Integer) level);
                 }
             }
         }
