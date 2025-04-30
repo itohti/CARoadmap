@@ -36,7 +36,8 @@ public class PlayerDataDiffUtil {
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map.Entry<String, Integer> e : clientStats.entrySet()) {
             Map<String, Object> statMap = new HashMap<>();
-            statMap.put(e.getKey(), e.getValue());
+            statMap.put("skill_name", e.getKey());
+            statMap.put("level", e.getValue());
             result.add(statMap);
         }
         return result;
@@ -64,8 +65,8 @@ public class PlayerDataDiffUtil {
                 Map<?, ?> rawMap = (Map<?, ?>) obj;
                 Object name = rawMap.get("skill_name");
                 Object level = rawMap.get("level");
-                if (name instanceof String && level instanceof Integer) {
-                    map.put((String) name, (Integer) level);
+                if (name instanceof String && level instanceof Number) {
+                    map.put((String) name, ((Number) level).intValue());
                 }
             }
         }

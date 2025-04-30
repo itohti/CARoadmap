@@ -141,21 +141,11 @@ public class CSVHandler {
      * This will create a Task if it is not in the csv file.
      */
     public void createTask(Task task) {
-        if (task.getScore() == null) {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
-                writer.write(task.toString());
-                writer.newLine();
-            } catch (IOException e) {
-                log.error("Could not write to csv file: {}", csvPath);
-            }
-        }
-        else {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
-                writer.write(String.format("%s,%f", task.toString(), task.getScore()));
-                writer.newLine();
-            } catch (IOException e) {
-                log.info("Could not write to csv file: {}", csvPath);
-            }
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
+            writer.write(String.format("%s,%f", task.toString(), task.getScore()));
+            writer.newLine();
+        } catch (IOException e) {
+            log.info("Could not write to csv file: {}", csvPath);
         }
     }
 
