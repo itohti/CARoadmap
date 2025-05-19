@@ -9,3 +9,6 @@ I want to be able to give a nice list of combat achievement tasks for the player
 Algorithm will account for these data points:
 - Wise Old Man api for efficiency rates to rate KILL_COUNT tasks
 - Web scrape OSRS WIKI to get Completion Percentage of tasks
+
+## Snippets of the CARoadmap
+![image](https://github.com/user-attachments/assets/b3954d7e-5664-4e38-bc72-feea626a6c6f)
