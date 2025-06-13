@@ -2,12 +2,10 @@ package com.caroadmap.data;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
+import java.util.ArrayList;
 
 @Slf4j
 public class CSVHandler {
@@ -24,7 +22,8 @@ public class CSVHandler {
 
         if (!csvFile.exists()) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile))) {
-                writer.write(String.join(",", getHeaderNames()) + "\n");
+                writer.write(String.join(",", getHeaderNames()));
+                writer.newLine();
             } catch (IOException e) {
                 log.error("Could not create CSV file: ", e);
             }
@@ -43,29 +42,16 @@ public class CSVHandler {
     }
 
     public Task getTask(String taskName) {
-        try (Reader reader = new FileReader(csvPath, StandardCharsets.UTF_8)) {
-            CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
-                    .setHeader(CSVColumns.class)
-                    .setSkipHeaderRecord(true)
-                    .get();
-            Iterable<CSVRecord> records = format.parse(reader);
+        try (BufferedReader reader = new BufferedReader(new FileReader(csvPath, StandardCharsets.UTF_8))) {
+            String headerLine = reader.readLine(); // skip header
 
-            for (CSVRecord record : records) {
-                String taskFromFile = record.get(CSVColumns.TASK_NAME);
-                if (taskFromFile.equals(taskName)) {
-                    Task task = new Task(
-                            record.get(CSVColumns.BOSS_NAME),
-                            record.get(CSVColumns.TASK_NAME),
-                            record.get(CSVColumns.TASK_DESCRIPTION),
-                            record.get(CSVColumns.TYPE),
-                            record.get(CSVColumns.TIER),
-                            record.get(CSVColumns.DONE)
-                    );
-                    String scoreStr = record.get(CSVColumns.SCORE);
-                    if (scoreStr != null && !scoreStr.isBlank()) {
-                        task.setScore(Double.parseDouble(scoreStr));
-                    }
-                    return task;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] values = parseCsvLine(line);
+                if (values.length < CSVColumns.values().length) continue;
+
+                if (values[CSVColumns.TASK_NAME.ordinal()].equals(taskName)) {
+                    return parseTask(values);
                 }
             }
         } catch (IOException e) {
@@ -79,47 +65,26 @@ public class CSVHandler {
         File tmp = new File("tmp.csv");
         File csvFile = new File(csvPath);
 
-        try (Reader reader = new FileReader(csvPath, StandardCharsets.UTF_8);
+        try (BufferedReader reader = new BufferedReader(new FileReader(csvPath, StandardCharsets.UTF_8));
              BufferedWriter writer = new BufferedWriter(new FileWriter(tmp))) {
 
-            CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
-                    .setHeader(CSVColumns.class)
-                    .setSkipHeaderRecord(true)
-                    .get();
-            Iterable<CSVRecord> records = format.parse(reader);
-            Iterator<CSVRecord> iterator = records.iterator();
+            String headerLine = reader.readLine();
+            writer.write(headerLine);
+            writer.newLine();
 
-            writer.write(String.join(",", getHeaderNames()) + "\n");
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] values = parseCsvLine(line);
+                if (values.length < CSVColumns.values().length) continue;
 
-            while (iterator.hasNext()) {
-                CSVRecord record = iterator.next();
-                Task task = new Task(
-                        record.get(CSVColumns.BOSS_NAME),
-                        record.get(CSVColumns.TASK_NAME),
-                        record.get(CSVColumns.TASK_DESCRIPTION),
-                        record.get(CSVColumns.TYPE),
-                        record.get(CSVColumns.TIER),
-                        record.get(CSVColumns.DONE)
-                );
-
-                String scoreStr = record.get(CSVColumns.SCORE);
-                double score = 0.0;
-                if (scoreStr != null && !scoreStr.isBlank()) {
-                    try {
-                        score = Double.parseDouble(scoreStr);
-                    } catch (NumberFormatException e) {
-                        log.warn("Invalid score for task '{}': '{}'", task.getTaskName(), scoreStr);
-                    }
-                }
-                task.setScore(score);
+                Task task = parseTask(values);
 
                 if (task.getTaskName().equals(taskName)) {
                     task.setDone(true);
                     isUpdated = true;
                 }
 
-                writer.write(String.format("%s,%f", task.toString(), task.getScore()));
-                writer.newLine();
+                writeTask(writer, task);
             }
         } catch (IOException e) {
             log.error("Could not read or write to CSV file: {}", csvPath, e);
@@ -146,11 +111,87 @@ public class CSVHandler {
 
     public void createTask(Task task) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(csvPath, true))) {
-            writer.write(String.format("%s,%f", task.toString(), task.getScore()));
-            writer.newLine();
+            writeTask(writer, task);
         } catch (IOException e) {
             log.error("Could not write to CSV file: {}", csvPath, e);
         }
+    }
+
+    private void writeTask(BufferedWriter writer, Task task) throws IOException {
+        String[] values = new String[]{
+                escapeCsv(task.getBoss()),
+                escapeCsv(task.getTaskName()),
+                escapeCsv(task.getTaskDescription()),
+                escapeCsv(String.valueOf(task.getType())),
+                escapeCsv(String.valueOf(task.getTier())),
+                escapeCsv(String.valueOf(task.isDone())),
+                escapeCsv(String.valueOf(task.getScore()))
+        };
+        writer.write(String.join(",", values));
+        writer.newLine();
+    }
+
+    private Task parseTask(String[] values) {
+        Task task = new Task(
+                values[CSVColumns.BOSS_NAME.ordinal()],
+                values[CSVColumns.TASK_NAME.ordinal()],
+                values[CSVColumns.TASK_DESCRIPTION.ordinal()],
+                values[CSVColumns.TYPE.ordinal()],
+                values[CSVColumns.TIER.ordinal()],
+                values[CSVColumns.DONE.ordinal()]
+        );
+
+        if (CSVColumns.SCORE.ordinal() < values.length) {
+            try {
+                task.setScore(Double.parseDouble(values[CSVColumns.SCORE.ordinal()]));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid score for task '{}': '{}'", task.getTaskName(), values[CSVColumns.SCORE.ordinal()]);
+            }
+        }
+        return task;
+    }
+
+    private String escapeCsv(String input) {
+        if (input.contains(",") || input.contains("\"") || input.contains("\n")) {
+            input = input.replace("\"", "\"\"");
+            return "\"" + input + "\"";
+        }
+        return input;
+    }
+
+    private String[] parseCsvLine(String line) {
+        ArrayList<String> fields = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+
+            if (inQuotes) {
+                if (c == '"') {
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        current.append('"'); // Escaped quote
+                        i++;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    current.append(c);
+                }
+            } else {
+                if (c == '"') {
+                    inQuotes = true;
+                } else if (c == ',') {
+                    fields.add(current.toString());
+                    current.setLength(0);
+                } else {
+                    current.append(c);
+                }
+            }
+        }
+
+        fields.add(current.toString());
+        return fields.toArray(new String[0]);
     }
 
     public String getCsvPath() {

@@ -7,13 +7,11 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVRecord;
 
 import javax.inject.Inject;
+import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
@@ -22,7 +20,7 @@ public class RecommendTasks {
     @Getter
     private ArrayList<Task> recommendedTasks;
     private final CSVHandler csvHandler;
-    // default is sorting by score.
+
     @Setter
     private SortingType sortingType = SortingType.SCORE;
     @Setter
@@ -41,6 +39,7 @@ public class RecommendTasks {
         if (ascending == null) {
             ascending = true;
         }
+
         this.recommendedTasks = new ArrayList<>();
         this.csvHandler = csvHandler;
         this.server = server;
@@ -51,7 +50,7 @@ public class RecommendTasks {
     }
 
     /**
-     * Gets the recommendations from the server OR locally. First it will be locally than it would be from the server.
+     * Gets the recommendations from the server OR locally. First it will be locally then from the server.
      * @param username the username of the player
      * @param pointThreshold the point goal the user is trying to hit.
      */
@@ -69,27 +68,41 @@ public class RecommendTasks {
 
     private ArrayList<Task> tryLoadLocalRecommendations() {
         ArrayList<Task> taskList = new ArrayList<>();
-        try (Reader reader = new FileReader(csvHandler.getCsvPath(), StandardCharsets.UTF_8)) {
-            Iterable<CSVRecord> records = CSVFormat.Builder.create(CSVFormat.DEFAULT)
-                    .setHeader(CSVColumns.class)
-                    .setSkipHeaderRecord(true)
-                    .get()
-                    .parse(reader);
 
-            for (CSVRecord record : records) {
-                Task task = new Task(
-                        record.get(CSVColumns.BOSS_NAME),
-                        record.get(CSVColumns.TASK_NAME),
-                        record.get(CSVColumns.TASK_DESCRIPTION),
-                        record.get(CSVColumns.TYPE),
-                        record.get(CSVColumns.TIER),
-                        record.get(CSVColumns.DONE)
-                );
+        try (BufferedReader reader = new BufferedReader(new FileReader(csvHandler.getCsvPath(), StandardCharsets.UTF_8))) {
+            String headerLine = reader.readLine(); // Skip header
+            if (headerLine == null) {
+                log.warn("CSV file is empty.");
+                return taskList;
+            }
 
-                double score = Double.parseDouble(record.get(CSVColumns.SCORE));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] values = parseCsvLine(line); // <-- Updated
 
-                task.setScore(score);
-                taskList.add(task);
+                if (values.length < CSVColumns.values().length) {
+                    continue;
+                }
+
+                try {
+                    Task task = new Task(
+                            values[CSVColumns.BOSS_NAME.ordinal()],
+                            values[CSVColumns.TASK_NAME.ordinal()],
+                            values[CSVColumns.TASK_DESCRIPTION.ordinal()],
+                            values[CSVColumns.TYPE.ordinal()],
+                            values[CSVColumns.TIER.ordinal()],
+                            values[CSVColumns.DONE.ordinal()]
+                    );
+
+                    if (CSVColumns.SCORE.ordinal() < values.length) {
+                        double score = Double.parseDouble(values[CSVColumns.SCORE.ordinal()]);
+                        task.setScore(score);
+                    }
+
+                    taskList.add(task);
+                } catch (Exception e) {
+                    log.warn("Could not parse task from CSV line: {}", line, e);
+                }
             }
 
             sortRecommendations(taskList);
@@ -127,7 +140,6 @@ public class RecommendTasks {
             }
 
             sortRecommendations(recommendedTasks);
-
         } catch (IOException | InterruptedException e) {
             log.error("Error fetching recommendations from server: ", e);
         }
@@ -135,32 +147,50 @@ public class RecommendTasks {
         this.recommendedTasks = recommendedTasks;
     }
 
-    private void sortRecommendations(ArrayList<Task> recommendedTasks) {
+    private void sortRecommendations(ArrayList<Task> tasks) {
         if (sortingType == SortingType.SCORE) {
-            if (this.ascending) {
-                recommendedTasks.sort(Task.byScore());
-            }
-            else {
-                recommendedTasks.sort(Task.byScore().reversed());
+            tasks.sort(this.ascending ? Task.byScore() : Task.byScore().reversed());
+        } else if (sortingType == SortingType.BOSS) {
+            tasks.sort(this.ascending ? Task.byBoss() : Task.byBoss().reversed());
+        } else if (sortingType == SortingType.TIER) {
+            tasks.sort(this.ascending ? Task.byTier() : Task.byTier().reversed());
+        }
+    }
+
+    private String[] parseCsvLine(String line) {
+        ArrayList<String> fields = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+
+            if (inQuotes) {
+                if (c == '"') {
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        // Double quote -> add literal quote
+                        current.append('"');
+                        i++;
+                    } else {
+                        // End of quoted field
+                        inQuotes = false;
+                    }
+                } else {
+                    current.append(c);
+                }
+            } else {
+                if (c == '"') {
+                    inQuotes = true;
+                } else if (c == ',') {
+                    fields.add(current.toString());
+                    current.setLength(0);
+                } else {
+                    current.append(c);
+                }
             }
         }
 
-        if (sortingType == SortingType.BOSS) {
-            if (this.ascending) {
-                recommendedTasks.sort(Task.byBoss());
-            }
-            else {
-                recommendedTasks.sort(Task.byBoss().reversed());
-            }
-        }
-
-        if (sortingType == SortingType.TIER) {
-            if (this.ascending) {
-                recommendedTasks.sort(Task.byTier());
-            }
-            else {
-                recommendedTasks.sort(Task.byTier().reversed());
-            }
-        }
+        fields.add(current.toString());
+        return fields.toArray(new String[0]);
     }
 }
