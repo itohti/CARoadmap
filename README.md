@@ -10,5 +10,6 @@ Algorithm will account for these data points:
 - Wise Old Man api for efficiency rates to rate KILL_COUNT tasks
 - Web scrape OSRS WIKI to get Completion Percentage of tasks
 
-## Snippets of the plugin
-![img.png](screenshots/img.png)
+## Snippets of the CARoadmap
+![image](https://github.com/user-attachments/assets/1fa57f04-b5f5-45d6-8cd7-6506cec5512f)
+
