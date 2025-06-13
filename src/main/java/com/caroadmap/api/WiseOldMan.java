@@ -13,8 +13,9 @@ import java.util.List;
 import com.caroadmap.data.Boss;
 import com.caroadmap.dto.EhbResponse;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.inject.Inject;
 
 @Slf4j
 public class WiseOldMan {
@@ -22,12 +23,13 @@ public class WiseOldMan {
 
     private final String displayName;
     private final HttpClient client;
-    private final Gson gson;
+
+    @Inject
+    private Gson gson;
 
     public WiseOldMan(String displayName) {
         this.displayName = displayName;
         this.client = HttpClient.newHttpClient();
-        this.gson = new GsonBuilder().create();
     }
 
     /**

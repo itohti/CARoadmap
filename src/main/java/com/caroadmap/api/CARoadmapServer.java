@@ -30,7 +30,7 @@ import java.util.Map;
 @Slf4j
 public class CARoadmapServer {
     private final HttpClient client;
-    private final Gson gson = new GsonBuilder().serializeNulls().create();
+    private final Gson gson;
 
     @Setter
     @Getter
@@ -42,9 +42,10 @@ public class CARoadmapServer {
     private static final File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
 
     @Inject
-    public CARoadmapServer() {
+    public CARoadmapServer(Gson gson) {
         log.info("Initialized CARoadmapServer");
         this.client = HttpClient.newHttpClient();
+        this.gson = gson;
     }
 
     public void register(String username) {

@@ -9,6 +9,7 @@ import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
+import javax.inject.Inject;
 import java.io.*;
 import java.lang.reflect.Type;
 import java.util.*;
@@ -23,7 +24,9 @@ public class PlayerDataBatcher {
     private final Map<String, ArrayList<Object>> batch;
     private final CARoadmapServer server;
     private final File playerCache;
-    private final Gson gson;
+
+    @Inject
+    private Gson gson;
 
     public PlayerDataBatcher(String username, CARoadmapServer server) {
         this.username = username;
@@ -37,7 +40,6 @@ public class PlayerDataBatcher {
         batch.put(COMBAT_STATS_KEY, new ArrayList<>());
         batch.put(TASKS_KEY, new ArrayList<>());
 
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
     }
 
     public boolean addBossToBatch(Boss boss) {
