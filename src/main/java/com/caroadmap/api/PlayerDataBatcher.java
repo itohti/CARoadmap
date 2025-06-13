@@ -3,142 +3,136 @@ package com.caroadmap.api;
 import com.caroadmap.data.Boss;
 import com.caroadmap.data.PlayerDataDiffUtil;
 import com.caroadmap.data.Task;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.lang.reflect.Type;
 import java.util.*;
-import java.util.function.Function;
 
 @Slf4j
 public class PlayerDataBatcher {
+    private static final String BOSS_INFO_KEY = "boss_info";
+    private static final String COMBAT_STATS_KEY = "combat_stats";
+    private static final String TASKS_KEY = "tasks";
+
     private final String username;
     private final Map<String, ArrayList<Object>> batch;
     private final CARoadmapServer server;
     private final File playerCache;
+    private final Gson gson;
 
     public PlayerDataBatcher(String username, CARoadmapServer server) {
-        File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
         this.username = username;
-        this.playerCache = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
-        this.batch = new HashMap<>();
         this.server = server;
-        this.batch.put("boss_info", new ArrayList<>());
-        this.batch.put("combat_stats", new ArrayList<>());
-        this.batch.put("tasks", new ArrayList<>());
+
+        File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
+        this.playerCache = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
+
+        this.batch = new HashMap<>();
+        batch.put(BOSS_INFO_KEY, new ArrayList<>());
+        batch.put(COMBAT_STATS_KEY, new ArrayList<>());
+        batch.put(TASKS_KEY, new ArrayList<>());
+
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
     }
 
-    /**
-     * Add boss info to backend
-     * @param boss is the boss object that will be added to firestore
-     * @return true if the operation succeeds.
-     */
     public boolean addBossToBatch(Boss boss) {
         try {
-            batch.get("boss_info").add(boss.formatBoss());
+            batch.get(BOSS_INFO_KEY).add(boss.formatBoss());
             return true;
-        }
-        catch (Exception e) {
-            log.error("Could not add boss info in firestore: ", e);
+        } catch (Exception e) {
+            log.error("Could not add boss info to batch: ", e);
             return false;
         }
     }
 
-    /**
-     * Adds a skill to the backend database.
-     * @param skillName is the skill name.
-     * @param level is the level that is associated with the skill.
-     * @return true if it was successful.
-     */
     public boolean addSkillToBatch(String skillName, int level) {
         Map<String, Object> skillMap = new HashMap<>();
         skillMap.put("skill_name", skillName);
         skillMap.put("level", level);
+
         try {
-            batch.get("combat_stats").add(skillMap);
+            batch.get(COMBAT_STATS_KEY).add(skillMap);
             return true;
-        }
-        catch (Exception e) {
-            log.error("Could not upload boss to backend: ", e);
+        } catch (Exception e) {
+            log.error("Could not add skill info to batch: ", e);
             return false;
         }
     }
 
-    /**
-     * Adds a task into the backend database.
-     * @param task the task that needs to be added.
-     * @return true if it was successful.
-     */
     public boolean addTaskToBatch(Task task) {
         Map<String, Object> userTaskObj = new HashMap<>();
         userTaskObj.put("Done", task.isDone());
         userTaskObj.put("task_name", task.getTaskName());
+
         try {
-            batch.get("tasks").add(userTaskObj);
+            batch.get(TASKS_KEY).add(userTaskObj);
             return true;
-        }
-        catch (Exception e) {
-            log.error("Could not upload task to backend: ", e);
+        } catch (Exception e) {
+            log.error("Could not add task info to batch: ", e);
             return false;
         }
     }
 
     public Map<String, ArrayList<Object>> loadPlayerCache() {
-        if (!playerCache.exists()) return null;
-
-        try (FileReader reader = new FileReader(playerCache)) {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(reader, new TypeReference<Map<String, ArrayList<Object>>>() {});
+        if (!playerCache.exists()) {
+            return null;
         }
-        catch (IOException e) {
-            log.error("Could not read player cache: ", e);
+
+        try (Reader reader = new FileReader(playerCache)) {
+            Type type = new TypeToken<Map<String, ArrayList<Object>>>() {}.getType();
+            return gson.fromJson(reader, type);
+        } catch (IOException e) {
+            log.error("Could not read player cache from file: ", e);
             return null;
         }
     }
 
     public boolean sendData() {
         Map<String, ArrayList<Object>> localCache = loadPlayerCache();
-        boolean updatedFlag = false;
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, ArrayList<Object>> batchCopy = mapper.convertValue(batch, new TypeReference<Map<String, ArrayList<Object>>>() {});
+        boolean hasUpdates = false;
+
+        // Deep copy batch by serializing and deserializing with Gson
+        String batchJson = gson.toJson(batch);
+        Type type = new TypeToken<Map<String, ArrayList<Object>>>() {}.getType();
+        Map<String, ArrayList<Object>> batchCopy = gson.fromJson(batchJson, type);
+
         if (localCache == null) {
-            log.warn("No player cache found, uploading everything.");
+            log.warn("No player cache found, uploading full batch.");
             return server.storePlayerData(username, batch);
         }
 
+        // Filter out unchanged data by comparing to cache
         for (Map.Entry<String, ArrayList<Object>> entry : batch.entrySet()) {
             String key = entry.getKey();
-            ArrayList<Object> newVal = entry.getValue();
-            ArrayList<Object> cachedVal = localCache.getOrDefault(key, new ArrayList<>());
+            ArrayList<Object> newData = entry.getValue();
+            ArrayList<Object> cachedData = localCache.getOrDefault(key, new ArrayList<>());
 
-            List<Object> filtered = PlayerDataDiffUtil.filterByKey(key, newVal, cachedVal);
-            if (!filtered.isEmpty()) {
-                updatedFlag = true;
+            List<Object> filteredData = PlayerDataDiffUtil.filterByKey(key, newData, cachedData);
+            if (!filteredData.isEmpty()) {
+                hasUpdates = true;
             }
-            batch.put(key, new ArrayList<>(filtered));
+
+            // Replace batch data with filtered data for sending
+            batch.put(key, new ArrayList<>(filteredData));
         }
 
-        if (!updatedFlag) {
-            log.info("No player data changed.");
+        if (!hasUpdates) {
+            log.info("No player data changes detected; skipping upload.");
             return true;
         }
 
-        if (server.storePlayerData(username, batch)){
-            if (updatedFlag) {
-                try (FileWriter writer = new FileWriter(playerCache)) {
-                    String toWrite = mapper.writeValueAsString(batchCopy);
-                    writer.write(toWrite);
-                    return true;
-                }
-                catch (IOException e) {
-                    log.error("Could not write into cache file: ", e);
-                    return false;
-                }
+        if (server.storePlayerData(username, batch)) {
+            try (Writer writer = new FileWriter(playerCache)) {
+                gson.toJson(batchCopy, writer);
+                return true;
+            } catch (IOException e) {
+                log.error("Failed to write updated player cache to file: ", e);
+                return false;
             }
         }
 
