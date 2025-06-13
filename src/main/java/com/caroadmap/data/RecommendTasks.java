@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
+import static com.caroadmap.data.CsvUtils.parseCsvLine;
+
 @Slf4j
 public class RecommendTasks {
     @Getter
@@ -78,7 +80,7 @@ public class RecommendTasks {
 
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] values = parseCsvLine(line); // <-- Updated
+                String[] values = parseCsvLine(line);
 
                 if (values.length < CSVColumns.values().length) {
                     continue;
@@ -157,40 +159,4 @@ public class RecommendTasks {
         }
     }
 
-    private String[] parseCsvLine(String line) {
-        ArrayList<String> fields = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inQuotes = false;
-
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-
-            if (inQuotes) {
-                if (c == '"') {
-                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                        // Double quote -> add literal quote
-                        current.append('"');
-                        i++;
-                    } else {
-                        // End of quoted field
-                        inQuotes = false;
-                    }
-                } else {
-                    current.append(c);
-                }
-            } else {
-                if (c == '"') {
-                    inQuotes = true;
-                } else if (c == ',') {
-                    fields.add(current.toString());
-                    current.setLength(0);
-                } else {
-                    current.append(c);
-                }
-            }
-        }
-
-        fields.add(current.toString());
-        return fields.toArray(new String[0]);
-    }
 }
