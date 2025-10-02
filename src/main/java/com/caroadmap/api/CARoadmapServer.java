@@ -89,6 +89,7 @@ public class CARoadmapServer {
     }
 
     public boolean storePlayerData(String username, Map<String, ArrayList<Object>> data) {
+        log.info("storing player data");
         try {
             String jsonBody = gson.toJson(data);
             String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);

@@ -9,7 +9,6 @@ import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
-import javax.inject.Inject;
 import java.io.*;
 import java.lang.reflect.Type;
 import java.util.*;
@@ -25,8 +24,7 @@ public class PlayerDataBatcher {
     private final CARoadmapServer server;
     private final File playerCache;
 
-    @Inject
-    private Gson gson;
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     public PlayerDataBatcher(String username, CARoadmapServer server) {
         this.username = username;
@@ -84,11 +82,10 @@ public class PlayerDataBatcher {
         if (!playerCache.exists()) {
             return null;
         }
-
         try (Reader reader = new FileReader(playerCache)) {
             Type type = new TypeToken<Map<String, ArrayList<Object>>>() {}.getType();
             return gson.fromJson(reader, type);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Could not read player cache from file: ", e);
             return null;
         }
@@ -96,6 +93,7 @@ public class PlayerDataBatcher {
 
     public boolean sendData() {
         Map<String, ArrayList<Object>> localCache = loadPlayerCache();
+        log.info("testing");
         boolean hasUpdates = false;
 
         // Deep copy batch by serializing and deserializing with Gson
@@ -107,6 +105,7 @@ public class PlayerDataBatcher {
             log.warn("No player cache found, uploading full batch.");
             return server.storePlayerData(username, batch);
         }
+
 
         // Filter out unchanged data by comparing to cache
         for (Map.Entry<String, ArrayList<Object>> entry : batch.entrySet()) {
@@ -123,6 +122,8 @@ public class PlayerDataBatcher {
             batch.put(key, new ArrayList<>(filteredData));
         }
 
+        log.info("sending data");
+
         if (!hasUpdates) {
             log.info("No player data changes detected; skipping upload.");
             return true;
@@ -136,6 +137,9 @@ public class PlayerDataBatcher {
                 log.error("Failed to write updated player cache to file: ", e);
                 return false;
             }
+        }
+        else {
+            log.error("Something went wrong.");
         }
 
         return false;
