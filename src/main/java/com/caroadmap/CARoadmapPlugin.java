@@ -11,9 +11,7 @@ import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.RuneLite;
 import net.runelite.client.game.SpriteManager;
-import net.runelite.client.hiscore.HiscoreClient;
-import net.runelite.client.hiscore.HiscoreResult;
-import net.runelite.client.hiscore.HiscoreSkill;
+import net.runelite.client.hiscore.*;
 
 import com.google.inject.Provides;
 
@@ -77,7 +75,7 @@ public class CARoadmapPlugin extends Plugin
 	private CSVHandler recommendationsCSV;
 	private NavigationButton navButton;
 
-    private PlayerDataBatcher firestore;
+    private PlayerDataBatcher playerDataBatcher;
 	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
@@ -85,15 +83,13 @@ public class CARoadmapPlugin extends Plugin
 	private RecommendTasks recommendTasks;
 	private String username;
 	private boolean hasFetched = false;
-	private String apiKey;
 
-	private ExecutorService firestoreExecutor;
+	private ExecutorService databaseExecutor;
 	private ExecutorService csvHandlerExecutor;
 
 	@Override
 	protected void startUp() throws Exception
 	{
-		this.apiKey = config.apiKey();
 		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
@@ -112,7 +108,7 @@ public class CARoadmapPlugin extends Plugin
 			log.error("There was an error in setting up the nav button: " + e.getMessage());
 		}
 
-		firestoreExecutor = Executors.newSingleThreadExecutor(r -> {
+		databaseExecutor = Executors.newSingleThreadExecutor(r -> {
 			Thread t = Executors.defaultThreadFactory().newThread(r);
 			t.setDaemon(true);
 			t.setName("FirestoreThread");
@@ -131,7 +127,7 @@ public class CARoadmapPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		clientToolbar.removeNavigation(navButton);
-		firestoreExecutor.shutdown();
+		databaseExecutor.shutdown();
 		csvHandlerExecutor.shutdown();
 	}
 
@@ -204,50 +200,40 @@ public class CARoadmapPlugin extends Plugin
 	}
 
 	private void fetchData() {
+		// store character information to the db
 		this.username = getUsername();
-
+		long accountHash = client.getAccountHash();
 		// Initialize classes that are dependent on username
 		this.recommendationsCSV = new CSVHandler(username, "recommendations_list");
 		this.recommendTasks = new RecommendTasks(server, recommendationsCSV, configManager);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
 
-		if (!apiKey.isEmpty()) {
-			server.setApiKey(apiKey);
-		}
-		else {
-			server.register(username);
-			configManager.setConfiguration("CARoadmap", "apiKey", server.getApiKey());
-		}
-
-		firestoreExecutor.submit(() -> {
-			this.firestore = new PlayerDataBatcher(username, server);
+		databaseExecutor.submit(() -> {
+			this.playerDataBatcher = new PlayerDataBatcher(username, accountHash, server);
 			fetchAndStorePlayerSkills(username);
-
 			Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
+			if (wiseOldManData.length == 0) {
+				log.error("Could not receive boss data.");
+			}
 			for (Boss boss : wiseOldManData) {
-				// before we send it to firestore get pb.
-				Double pb = configManager.getRSProfileConfiguration("personalbest", boss.getBoss().toLowerCase(), double.class);
-				boss.setKillTime(Objects.requireNonNullElse(pb, -1.0));
-				if (!firestore.addBossToBatch(boss)) {
+				// before we send it to db get pb.
+				Double pbDouble = configManager.getRSProfileConfiguration(
+						"personalbest", boss.getBoss().toLowerCase(), Double.class
+				);
+				Integer pb = (pbDouble != null) ? pbDouble.intValue() : 0;
+				boss.setKillTime(pb);
+				if (!playerDataBatcher.addBossToBatch(boss)) {
 					log.error("Could not add boss [{}] to batch", boss.getBoss());
 				}
 			}
 		});
 
 		fetchAndStorePlayerTasks();
-		firestoreExecutor.submit(() -> {
-			boolean result = firestore.sendData();
+		databaseExecutor.submit(() -> {
+			boolean result = playerDataBatcher.sendData();
 			if (!result) {
 				log.error("Did not upload player data to database");
-			}
-			else {
-				File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
-				File cacheFile = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
-				if (!cacheFile.exists()) {
-					log.info("Caching player data from firestore.");
-					server.fetchAndCachePlayerData(username);
-				}
 			}
 		});
 
@@ -290,9 +276,9 @@ public class CARoadmapPlugin extends Plugin
 				boolean done = client.getIntStack()[0] != 0;
 
 				Task taskObject = new Task(boss, name, description, type, tier, done);
-				// add to Firestore
-				firestoreExecutor.submit(() -> {
-					boolean result = firestore.addTaskToBatch(taskObject);
+				// add to db
+				databaseExecutor.submit(() -> {
+					boolean result = playerDataBatcher.addTaskToBatch(taskObject);
 					if (!result) {
 						log.error("Could not add task: [{}] to batch", taskObject.getTaskName());
 					}
@@ -307,16 +293,16 @@ public class CARoadmapPlugin extends Plugin
 		}
 		try {
 			HiscoreResult result = hiscoreClient.lookup(displayName);
-			// adding skills in firestore
-			firestore.addSkillToBatch("Attack", result.getSkills().get(HiscoreSkill.ATTACK).getLevel());
-			firestore.addSkillToBatch("Defence", result.getSkills().get(HiscoreSkill.DEFENCE).getLevel());
-			firestore.addSkillToBatch("Strength", result.getSkills().get(HiscoreSkill.STRENGTH).getLevel());
-			firestore.addSkillToBatch("Hitpoints", result.getSkills().get(HiscoreSkill.HITPOINTS).getLevel());
-			firestore.addSkillToBatch("Ranged", result.getSkills().get(HiscoreSkill.RANGED).getLevel());
-			firestore.addSkillToBatch("Prayer", result.getSkills().get(HiscoreSkill.PRAYER).getLevel());
-			firestore.addSkillToBatch("Magic", result.getSkills().get(HiscoreSkill.MAGIC).getLevel());
-			firestore.addSkillToBatch("Slayer", result.getSkills().get(HiscoreSkill.SLAYER).getLevel());
+			// adding skills in db
+			for (Map.Entry<HiscoreSkill, Skill> entry : result.getSkills().entrySet()) {
+				HiscoreSkill skillName = entry.getKey();
 
+				// make sure we only get skills not activities.
+				if (skillName.getType() == HiscoreSkillType.SKILL) {
+					Skill skill = entry.getValue();
+					playerDataBatcher.addSkillToBatch(skillName.getName(), skill.getLevel());
+				}
+			}
 		}
 		catch (IOException e) {
 			log.error("Could not fetch hiscores for user: ", e);

@@ -16,22 +16,24 @@ import java.util.*;
 @Slf4j
 public class PlayerDataBatcher {
     private static final String BOSS_INFO_KEY = "boss_info";
-    private static final String COMBAT_STATS_KEY = "combat_stats";
+    private static final String COMBAT_STATS_KEY = "skills";
     private static final String TASKS_KEY = "tasks";
 
     private final String username;
+    private final long accountHash;
     private final Map<String, ArrayList<Object>> batch;
     private final CARoadmapServer server;
     private final File playerCache;
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    public PlayerDataBatcher(String username, CARoadmapServer server) {
+    public PlayerDataBatcher(String username, long accountHash ,  CARoadmapServer server) {
         this.username = username;
         this.server = server;
+        this.accountHash = accountHash;
 
         File pluginDir = new File(RuneLite.RUNELITE_DIR, "caroadmap");
-        this.playerCache = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
+        this.playerCache = new File(pluginDir, String.format("player_cache_%d.json", accountHash));
 
         this.batch = new HashMap<>();
         batch.put(BOSS_INFO_KEY, new ArrayList<>());
@@ -91,9 +93,18 @@ public class PlayerDataBatcher {
         }
     }
 
+    public boolean writeToLocalCache(Map<String, ArrayList<Object>> batchCopy) {
+        try (Writer writer = new FileWriter(playerCache)) {
+            gson.toJson(batchCopy, writer);
+            return true;
+        } catch (IOException e) {
+            log.error("Failed to write updated player cache to file: ", e);
+            return false;
+        }
+    }
+
     public boolean sendData() {
         Map<String, ArrayList<Object>> localCache = loadPlayerCache();
-        log.info("testing");
         boolean hasUpdates = false;
 
         // Deep copy batch by serializing and deserializing with Gson
@@ -103,7 +114,12 @@ public class PlayerDataBatcher {
 
         if (localCache == null) {
             log.warn("No player cache found, uploading full batch.");
-            return server.storePlayerData(username, batch);
+            if (server.storeCharacterData(username, accountHash, batch)) {
+                writeToLocalCache(batchCopy);
+            }
+            else {
+                log.error("Could not store character data.");
+            }
         }
 
 
@@ -129,14 +145,8 @@ public class PlayerDataBatcher {
             return true;
         }
 
-        if (server.storePlayerData(username, batch)) {
-            try (Writer writer = new FileWriter(playerCache)) {
-                gson.toJson(batchCopy, writer);
-                return true;
-            } catch (IOException e) {
-                log.error("Failed to write updated player cache to file: ", e);
-                return false;
-            }
+        if (server.storeCharacterData(username, accountHash, batch)) {
+            writeToLocalCache(batchCopy);
         }
         else {
             log.error("Something went wrong.");
