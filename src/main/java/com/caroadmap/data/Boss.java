@@ -1,6 +1,7 @@
 package com.caroadmap.data;
 
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,16 +14,13 @@ public class Boss {
     @Getter
     private double ehb;
     @Getter
-    private double killTime;
+    @Setter
+    private int killTime;
 
     public Boss (String boss, int kc, double ehb) {
         this.boss = boss;
         this.kc = kc;
         this.ehb = ehb;
-    }
-
-    public void setKillTime (Double killTime) {
-        this.killTime = killTime;
     }
 
     public Map<String, Object> formatBoss() {

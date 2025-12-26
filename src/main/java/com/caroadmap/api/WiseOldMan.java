@@ -24,8 +24,7 @@ public class WiseOldMan {
     private final String displayName;
     private final HttpClient client;
 
-    @Inject
-    private Gson gson;
+    private final Gson gson = new Gson();
 
     public WiseOldMan(String displayName) {
         this.displayName = displayName;
@@ -39,7 +38,6 @@ public class WiseOldMan {
     public Boss[] fetchBossInfo() {
         String encodedUsername = URLEncoder.encode(displayName, StandardCharsets.UTF_8).replace("+", "%20");
         String url = WISE_OLD_MAN_API + encodedUsername;
-
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .GET()
@@ -52,9 +50,7 @@ public class WiseOldMan {
                 log.warn("Received non-200 response from Wise Old Man API: {}", response.statusCode());
                 return new Boss[0];
             }
-
             EhbResponse ehbResponse = gson.fromJson(response.body(), EhbResponse.class);
-
             List<Boss> bossList = new ArrayList<>();
             ehbResponse.latestSnapshot.data.bosses.values().forEach(boss -> {
                 String formattedName = formatBossName(boss.metric);
@@ -62,7 +58,7 @@ public class WiseOldMan {
             });
 
             return bossList.toArray(new Boss[0]);
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
             log.error("Failed to fetch data from Wise Old Man API for user '{}': {}", displayName, e.getMessage());
             return new Boss[0];
         }

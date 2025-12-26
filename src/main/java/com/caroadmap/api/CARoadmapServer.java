@@ -1,10 +1,8 @@
 package com.caroadmap.api;
 
-import com.caroadmap.CARoadmapConfig;
+import com.caroadmap.data.Boss;
 import com.caroadmap.dto.GetRecommendationsResponse;
-import com.caroadmap.dto.RegisterDTO;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -48,46 +46,35 @@ public class CARoadmapServer {
         this.gson = gson;
     }
 
-    public void register(String username) {
-        Map<String, String> data = new HashMap<>();
-        data.put("display_name", username);
+    public boolean storeCharacterData(String username, long accountHash, Map<String, ArrayList<Object>> data) {
+        log.info("storing character data");
+
+        Map<String, Object> dataToSend = new HashMap<>();
+
+        dataToSend.put("username", username);
+        dataToSend.put("accountHash", accountHash);
+        dataToSend.put("character_details", data);
+        log.info(dataToSend.toString());
+
         try {
-            String json = gson.toJson(data);
+            String jsonBody = gson.toJson(dataToSend);
+
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://osrs.izdartohti.org/register"))
+                    .uri(URI.create("http://localhost:8080/characterdata"))
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            RegisterDTO registerResponse = gson.fromJson(response.body(), RegisterDTO.class);
-            this.apiKey = registerResponse.getApi_key();
-        } catch (IOException | InterruptedException e) {
-            log.error("Could not register user with error: ", e);
+
+            return response.statusCode() == 200;
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            log.error("Could not insert character data.");
+            return false;
         }
     }
 
-    public void fetchAndCachePlayerData(String username) {
-        File cacheFile = new File(pluginDir, String.format("player_cache_%s.json", username.replace(" ", "_")));
-        try (FileWriter writer = new FileWriter(cacheFile)) {
-            String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(String.format("http://osrs.izdartohti.org/playerdata?username=%s", encodedUsername)))
-                    .header("X-API-Key", this.apiKey)
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                writer.write(response.body());
-            } else {
-                log.warn("Failed with status code: {}", response.statusCode());
-            }
-        } catch (IOException | InterruptedException e) {
-            log.error("Could not fetch player data: ", e);
-        }
-    }
-
+    // TO BE DEPRECATED
     public boolean storePlayerData(String username, Map<String, ArrayList<Object>> data) {
         log.info("storing player data");
         try {
@@ -105,7 +92,6 @@ public class CARoadmapServer {
 
             if (response.statusCode() == 403) {
                 log.warn("API key rejected. Attempting re-registration...");
-                register(username);
                 configManager.setConfiguration("CARoadmap", "apiKey", this.apiKey);
 
                 request = HttpRequest.newBuilder()
@@ -162,7 +148,6 @@ public class CARoadmapServer {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 403) {
-                register(username);
                 request = HttpRequest.newBuilder()
                         .uri(URI.create(String.format(
                                 "https://osrs.izdartohti.org/get_recommendations?username=%s&point_threshold=%d",
