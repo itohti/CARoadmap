@@ -1,7 +1,10 @@
 package com.caroadmap.api;
 
 import com.caroadmap.data.Boss;
+import com.caroadmap.data.Task;
 import com.caroadmap.dto.GetRecommendationsResponse;
+import com.caroadmap.dto.TaskDTO;
+import com.caroadmap.dto.TaskFromBossResponse;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.Setter;
@@ -29,6 +32,7 @@ import java.util.Map;
 public class CARoadmapServer {
     private final HttpClient client;
     private final Gson gson;
+    private final String SERVER_URL = "http://localhost:8080"; // for now its just local. CHANGE THIS
 
     @Setter
     @Getter
@@ -60,7 +64,7 @@ public class CARoadmapServer {
             String jsonBody = gson.toJson(dataToSend);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:8080/characterdata"))
+                    .uri(URI.create(SERVER_URL + "/characterdata"))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
@@ -74,7 +78,38 @@ public class CARoadmapServer {
         }
     }
 
-    // TO BE DEPRECATED
+    /**
+     * This function will fetch the tasks from the boss.
+     * @return an array of tasks from the boss inputted. On error, it will return an EMPTY array.
+     */
+    public TaskDTO[] fetchTaskFromBoss(String boss, long accountHash) {
+        Map<String, Object> payload = new HashMap<>();
+
+        payload.put("accountHash", accountHash);
+        payload.put("boss", boss);
+
+        try {
+            String jsonBody = gson.toJson(payload);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/get_tasks"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            TaskFromBossResponse parsedResponse = gson.fromJson(response.body(), TaskFromBossResponse.class);
+
+            return parsedResponse.getIncomplete_tasks().toArray(new TaskDTO[0]);
+        }
+        catch (Exception e) {
+            log.error("Could not fetch task information on this boss {} because of {}", boss, e.toString());
+            return new TaskDTO[0];
+        }
+    }
+
+    // TO BE DEPRECATED.
     public boolean storePlayerData(String username, Map<String, ArrayList<Object>> data) {
         log.info("storing player data");
         try {
@@ -111,6 +146,7 @@ public class CARoadmapServer {
         }
     }
 
+    // NOT USED CODE TO BE DELETED.
     public boolean updatePlayerTask(String username, String taskName) {
         try {
             Map<String, String> jsonBody = new HashMap<>();
