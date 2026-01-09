@@ -4,12 +4,14 @@ import com.caroadmap.api.CARoadmapServer;
 import com.caroadmap.api.PlayerDataBatcher;
 import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
+import com.caroadmap.dto.TaskDTO;
+import com.caroadmap.ui.CAInfoBox;
 import com.caroadmap.ui.CARoadmapPanel;
-import net.runelite.api.ChatMessageType;
+import com.caroadmap.ui.CASpeedCounter;
+import net.runelite.api.*;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.RuneLite;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.*;
 
@@ -19,21 +21,20 @@ import javax.inject.Inject;
 import javax.swing.*;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.hiscore.Skill;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -71,6 +72,10 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private SpriteManager spriteManager;
 
+	@Inject
+	private InfoBoxManager infoBoxManager;
+
+	private CASpeedCounter[] caSpeedCounters;
 	private CARoadmapPanel caRoadmapPanel;
 	private CSVHandler recommendationsCSV;
 	private NavigationButton navButton;
@@ -79,10 +84,13 @@ public class CARoadmapPlugin extends Plugin
 	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
+	private Boss[] playerBossData;
 
 	private RecommendTasks recommendTasks;
 	private String username;
 	private boolean hasFetched = false;
+	private int inCombatCounter = 0;
+	private boolean wasInCombat = false;
 
 	private ExecutorService databaseExecutor;
 	private ExecutorService csvHandlerExecutor;
@@ -152,6 +160,30 @@ public class CARoadmapPlugin extends Plugin
 			fetchData();
 			getData = false;
 		}
+
+		// this will get what the player is interacting with.
+		// if the player is interacting with a boss it will spawn the CAOverlay
+		Player localPlayer = client.getLocalPlayer();
+		Actor target = localPlayer.getInteracting();
+
+		if (target != null && target.getInteracting() == localPlayer) {
+			inCombatCounter = 16;
+		}
+		else if (inCombatCounter > 0){
+			inCombatCounter--;
+		}
+
+		boolean isInCombat = inCombatCounter > 0;
+
+		if (isInCombat && !wasInCombat) {
+			onEnterCombat(target);
+		}
+
+		if (!isInCombat && wasInCombat) {
+			onExitCombat();
+		}
+
+		wasInCombat = isInCombat;
 	}
 
 	@Subscribe
@@ -199,6 +231,64 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
+	private void onEnterCombat(Actor target) {
+		// check to see if the player is fighting a boss.
+		for (Boss boss: playerBossData) {
+			if (target.getName().equals(boss.getBoss())) {
+				// the player is fighting a boss.
+				log.info("Player is fighting a boss.");
+				TaskDTO[] incompleteTasks = server.fetchTaskFromBoss(boss.getBoss(), client.getAccountHash());
+				caSpeedCounters = new CASpeedCounter[incompleteTasks.length];
+				for (int i = 0; i < incompleteTasks.length; i++) {
+					// create an info box about this task
+					if (incompleteTasks[i].getType().equals("Speed")) {
+						BufferedImage image = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/speedrunning_icon.png");
+						int timeLimitSeconds = extractSpeedRunningTime(incompleteTasks[i].getDescription());
+						CASpeedCounter caSpeedCounter = new CASpeedCounter(image, this, timeLimitSeconds, incompleteTasks[i].getTitle());
+
+						caSpeedCounters[i] = caSpeedCounter;
+					}
+				}
+			}
+		}
+	}
+
+	private void onExitCombat() {
+		// tear down ui
+		for (CASpeedCounter infoBox: caSpeedCounters) {
+			infoBoxManager.removeInfoBox(infoBox);
+		}
+	}
+
+	/**
+	 * This will extract the amount of seconds the player needs to kill a boss to complete the combat achievement.
+	 * @param description is the description of the task
+	 * @return the amount of seconds needed to complete the task but if it could not parse description it will return 0.
+	 */
+	private int extractSpeedRunningTime(String description) {
+		int totalSeconds = 0;
+
+		Pattern minutePattern = Pattern.compile("(\\d+) minute[s]?");
+		Matcher minuteMatcher = minutePattern.matcher(description);
+
+		if (minuteMatcher.find()) {
+			int minutes = Integer.parseInt(minuteMatcher.group(1));
+
+			totalSeconds += minutes * 60;
+		}
+
+		Pattern secondPattern = Pattern.compile("(\\d+) second[s]?");
+		Matcher secondMatcher = secondPattern.matcher(description);
+
+		if (secondMatcher.find()) {
+			int seconds = Integer.parseInt(secondMatcher.group(1));
+
+			totalSeconds += seconds;
+		}
+
+		return totalSeconds;
+	}
+
 	private void fetchData() {
 		// store character information to the db
 		this.username = getUsername();
@@ -212,16 +302,16 @@ public class CARoadmapPlugin extends Plugin
 		databaseExecutor.submit(() -> {
 			this.playerDataBatcher = new PlayerDataBatcher(username, accountHash, server);
 			fetchAndStorePlayerSkills(username);
-			Boss[] wiseOldManData = wiseOldMan.fetchBossInfo();
-			if (wiseOldManData.length == 0) {
+			playerBossData = wiseOldMan.fetchBossInfo();
+			if (playerBossData.length == 0) {
 				log.error("Could not receive boss data.");
 			}
-			for (Boss boss : wiseOldManData) {
+			for (Boss boss : playerBossData) {
 				// before we send it to db get pb.
 				Double pbDouble = configManager.getRSProfileConfiguration(
 						"personalbest", boss.getBoss().toLowerCase(), Double.class
 				);
-				Integer pb = (pbDouble != null) ? pbDouble.intValue() : 0;
+				int pb = (pbDouble != null) ? pbDouble.intValue() : 0;
 				boss.setKillTime(pb);
 				if (!playerDataBatcher.addBossToBatch(boss)) {
 					log.error("Could not add boss [{}] to batch", boss.getBoss());
