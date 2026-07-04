@@ -5,7 +5,7 @@ import com.caroadmap.api.PlayerDataBatcher;
 import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.dto.TaskDTO;
-import com.caroadmap.ui.CAInfoBox;
+import com.caroadmap.ui.CAKillCounter;
 import com.caroadmap.ui.CARoadmapPanel;
 import com.caroadmap.ui.CASpeedCounter;
 import net.runelite.api.*;
@@ -41,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 @PluginDescriptor(
@@ -75,7 +76,6 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private InfoBoxManager infoBoxManager;
 
-	private CASpeedCounter[] caSpeedCounters;
 	private CARoadmapPanel caRoadmapPanel;
 	private CSVHandler recommendationsCSV;
 	private NavigationButton navButton;
@@ -85,6 +85,7 @@ public class CARoadmapPlugin extends Plugin
 
 	private boolean getData = false;
 	private Boss[] playerBossData;
+	private Map<String, Boss> bossLookup;
 
 	private RecommendTasks recommendTasks;
 	private String username;
@@ -93,7 +94,7 @@ public class CARoadmapPlugin extends Plugin
 	private boolean wasInCombat = false;
 
 	private ExecutorService databaseExecutor;
-	private ExecutorService csvHandlerExecutor;
+	private ExecutorService generalExecutor;
 
 	@Override
 	protected void startUp() throws Exception
@@ -119,14 +120,14 @@ public class CARoadmapPlugin extends Plugin
 		databaseExecutor = Executors.newSingleThreadExecutor(r -> {
 			Thread t = Executors.defaultThreadFactory().newThread(r);
 			t.setDaemon(true);
-			t.setName("FirestoreThread");
+			t.setName("Database Thread");
 			return t;
 		});
 
-		csvHandlerExecutor = Executors.newSingleThreadExecutor(r -> {
+		generalExecutor = Executors.newSingleThreadExecutor(r -> {
 			Thread t = Executors.defaultThreadFactory().newThread(r);
 			t.setDaemon(true);
-			t.setName("csvThread");
+			t.setName("General Thread");
 			return t;
 		});
 	}
@@ -136,7 +137,7 @@ public class CARoadmapPlugin extends Plugin
 	{
 		clientToolbar.removeNavigation(navButton);
 		databaseExecutor.shutdown();
-		csvHandlerExecutor.shutdown();
+		generalExecutor.shutdown();
 	}
 
 	@Subscribe
@@ -166,7 +167,7 @@ public class CARoadmapPlugin extends Plugin
 		Player localPlayer = client.getLocalPlayer();
 		Actor target = localPlayer.getInteracting();
 
-		if (target != null && target.getInteracting() == localPlayer) {
+		if (target != null && bossLookup.get(normalizeBossName(Objects.requireNonNull(target.getName()))) != null) {
 			inCombatCounter = 16;
 		}
 		else if (inCombatCounter > 0){
@@ -176,7 +177,11 @@ public class CARoadmapPlugin extends Plugin
 		boolean isInCombat = inCombatCounter > 0;
 
 		if (isInCombat && !wasInCombat) {
-			onEnterCombat(target);
+			if (target == null)
+				return;
+
+			String name = target.getName();
+			generalExecutor.submit(() -> onEnterCombat(name));
 		}
 
 		if (!isInCombat && wasInCombat) {
@@ -190,8 +195,20 @@ public class CARoadmapPlugin extends Plugin
 	public void onChatMessage(ChatMessage event) {
 		if (event.getType() == ChatMessageType.GAMEMESSAGE) {
 			String msg = event.getMessage();
+			// check to see if the player defeated a boss or raid.
+			Pattern killCountPattern = Pattern.compile("Your (.+?) (?:kill count|count) is: (\\d+)?");
+			Matcher killCountMatcher = killCountPattern.matcher(msg);
+
+			if (killCountMatcher.find()) {
+				String boss = killCountMatcher.group(1);
+				int killCount = Integer.parseInt(killCountMatcher.group(2));
+				// do something when you get a kill count.
+			}
+
+
+			// check to see if the player completed a combat task.
 			if (msg.contains("combat task") && msg.contains("completed")) {
-				csvHandlerExecutor.submit(() -> {
+				generalExecutor.submit(() -> {
 					try {
 						Pattern pattern = Pattern.compile("combat task: <col=\\w+>(.*?)</col>");
 						Matcher matcher = pattern.matcher(msg);
@@ -231,35 +248,54 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
-	private void onEnterCombat(Actor target) {
+	private void onEnterCombat(String targetName) {
 		// check to see if the player is fighting a boss.
-		for (Boss boss: playerBossData) {
-			if (target.getName().equals(boss.getBoss())) {
-				// the player is fighting a boss.
-				log.info("Player is fighting a boss.");
-				TaskDTO[] incompleteTasks = server.fetchTaskFromBoss(boss.getBoss(), client.getAccountHash());
-				caSpeedCounters = new CASpeedCounter[incompleteTasks.length];
-				for (int i = 0; i < incompleteTasks.length; i++) {
-					// create an info box about this task
-					if (incompleteTasks[i].getType().equals("Speed")) {
-						BufferedImage image = ImageUtil.loadImageResource(CARoadmapPlugin.class, "/speedrunning_icon.png");
-						int timeLimitSeconds = extractSpeedRunningTime(incompleteTasks[i].getDescription());
-						CASpeedCounter caSpeedCounter = new CASpeedCounter(image, this, timeLimitSeconds, incompleteTasks[i].getTitle());
+		log.info("In combat");
+		if (targetName == null)
+		{
+			log.info("Target name is null, skipping combat detection");
+			return;
+		}
 
-						caSpeedCounters[i] = caSpeedCounter;
-					}
-				}
+		String normalized = normalizeBossName(targetName);
+
+		Boss boss = bossLookup.get(normalized);
+
+		if (boss == null) {
+			log.info("No boss match for {}", normalized);
+			return;
+		}
+		// the player is fighting a boss.
+		TaskDTO[] incompleteTasks = server.fetchTaskFromBoss(boss.getBoss(), client.getAccountHash());
+		log.info(Arrays.toString(incompleteTasks));
+		List<Task> uiTasks = new ArrayList<>();
+		for (TaskDTO dto : incompleteTasks)
+		{
+			try
+			{
+				Task task = TaskMapper.fromDTO(dto);
+				uiTasks.add(task);
+			}
+			catch (Exception e)
+			{
+				log.error("Failed mapping DTO: {}", dto, e);
 			}
 		}
+
+		SwingUtilities.invokeLater(() ->
+		{
+			caRoadmapPanel.setCombatTasks(uiTasks);
+			caRoadmapPanel.setMode(CARoadmapPanel.PanelMode.COMBAT);
+		});
 	}
 
 	private void onExitCombat() {
 		// tear down ui
-		for (CASpeedCounter infoBox: caSpeedCounters) {
-			infoBoxManager.removeInfoBox(infoBox);
-		}
+		log.info("out of combat");
 	}
 
+
+	// WE PROBABLY WANT TO MOVE THESE METHODS TO ANOTHER CLASS.
 	/**
 	 * This will extract the amount of seconds the player needs to kill a boss to complete the combat achievement.
 	 * @param description is the description of the task
@@ -289,6 +325,23 @@ public class CARoadmapPlugin extends Plugin
 		return totalSeconds;
 	}
 
+	/**
+	 * This method will extract the amount of times the player needs to kill a boss to complete the combat achievement task.
+	 * @param description is the description of the combat achievement
+	 * @return the amount of kills needed to complete the task. If it can't find it then it will default to 0.
+	 */
+	private int extractKillsToComplete(String description) {
+		// btw this will return nothing for any of the awakened kill count tasks from dt2 bosses.
+		Pattern killToCompletePattern = Pattern.compile("(\\d+) time[s]?");
+		Matcher killToCompleteMatcher = killToCompletePattern.matcher(description);
+
+		if (killToCompleteMatcher.find()) {
+			return Integer.parseInt(killToCompleteMatcher.group(1));
+		}
+
+		return 0;
+	}
+
 	private void fetchData() {
 		// store character information to the db
 		this.username = getUsername();
@@ -306,6 +359,11 @@ public class CARoadmapPlugin extends Plugin
 			if (playerBossData.length == 0) {
 				log.error("Could not receive boss data.");
 			}
+			bossLookup = Arrays.stream(playerBossData)
+					.collect(Collectors.toMap(
+							Boss::getBoss,
+							b -> b
+					));
 			for (Boss boss : playerBossData) {
 				// before we send it to db get pb.
 				Double pbDouble = configManager.getRSProfileConfiguration(
@@ -327,7 +385,7 @@ public class CARoadmapPlugin extends Plugin
 			}
 		});
 
-		csvHandlerExecutor.submit(() -> {
+		generalExecutor.submit(() -> {
 			recommendTasks.getRecommendations(username, 1014);
 
 			SwingUtilities.invokeLater(() -> {
@@ -411,6 +469,17 @@ public class CARoadmapPlugin extends Plugin
 		}
 
 		return username;
+	}
+
+	private static String normalizeBossName(String metric) {
+		return metric
+				.toLowerCase()
+				.replace("_", " ")
+				.replace(":", " ")
+				.replace("-", " ")
+				.replace("'", "")
+				.replaceAll("\\s+", " ")
+				.trim();
 	}
 
 	@Provides

@@ -46,4 +46,9 @@ public class Boss {
                 && this.killTime == otherBoss.getKillTime()
         );
     }
+
+    @Override
+    public String toString() {
+        return boss;
+    }
 }
