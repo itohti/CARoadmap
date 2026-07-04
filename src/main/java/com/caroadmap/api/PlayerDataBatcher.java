@@ -147,6 +147,7 @@ public class PlayerDataBatcher {
 
         if (server.storeCharacterData(username, accountHash, batch)) {
             writeToLocalCache(batchCopy);
+            return true;
         }
         else {
             log.error("Something went wrong.");

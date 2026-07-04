@@ -32,7 +32,7 @@ import java.util.Map;
 public class CARoadmapServer {
     private final HttpClient client;
     private final Gson gson;
-    private final String SERVER_URL = "http://localhost:8080"; // for now its just local. CHANGE THIS
+    private final String SERVER_URL = "https://kxin971pll.execute-api.us-east-1.amazonaws.com";
 
     @Setter
     @Getter

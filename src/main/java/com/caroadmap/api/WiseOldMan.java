@@ -53,8 +53,8 @@ public class WiseOldMan {
             EhbResponse ehbResponse = gson.fromJson(response.body(), EhbResponse.class);
             List<Boss> bossList = new ArrayList<>();
             ehbResponse.latestSnapshot.data.bosses.values().forEach(boss -> {
-                String formattedName = formatBossName(boss.metric);
-                bossList.add(new Boss(formattedName, boss.kills, boss.ehb));
+                String normalized = normalizeBossName(boss.metric);
+                bossList.add(new Boss(normalized, boss.kills, boss.ehb));
             });
 
             return bossList.toArray(new Boss[0]);
@@ -62,6 +62,17 @@ public class WiseOldMan {
             log.error("Failed to fetch data from Wise Old Man API for user '{}': {}", displayName, e.getMessage());
             return new Boss[0];
         }
+    }
+
+    private static String normalizeBossName(String metric) {
+        return metric
+                .toLowerCase()
+                .replace("_", " ")
+                .replace(":", " ")
+                .replace("-", " ")
+                .replace("'", "")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private static String formatBossName(String metric) {
