@@ -78,6 +78,7 @@ public class CARoadmapPlugin extends Plugin
 
 	private CARoadmapPanel caRoadmapPanel;
 	private CSVHandler recommendationsCSV;
+	private RecommendationCacheHandler recommendationCacheHandler;
 	private NavigationButton navButton;
 
     private PlayerDataBatcher playerDataBatcher;
@@ -100,6 +101,7 @@ public class CARoadmapPlugin extends Plugin
 	protected void startUp() throws Exception
 	{
 		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager);
+		this.recommendationCacheHandler = new RecommendationCacheHandler();
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			log.error("Could not load icon");
@@ -348,7 +350,7 @@ public class CARoadmapPlugin extends Plugin
 		long accountHash = client.getAccountHash();
 		// Initialize classes that are dependent on username
 		this.recommendationsCSV = new CSVHandler(username, "recommendations_list");
-		this.recommendTasks = new RecommendTasks(server, recommendationsCSV, configManager);
+		this.recommendTasks = new RecommendTasks(server, configManager, recommendationCacheHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
 
@@ -386,11 +388,11 @@ public class CARoadmapPlugin extends Plugin
 		});
 
 		generalExecutor.submit(() -> {
-			recommendTasks.getRecommendations(username, 1014);
+			recommendTasks.getRecommendations(accountHash);
 
 			SwingUtilities.invokeLater(() -> {
 				if (caRoadmapPanel != null) {
-					caRoadmapPanel.setUsername(username);
+					caRoadmapPanel.setCharacterId(accountHash);
 					caRoadmapPanel.refresh();
 				}
 			});

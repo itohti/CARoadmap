@@ -130,11 +130,11 @@ public class PlayerDataBatcher {
             ArrayList<Object> cachedData = localCache.getOrDefault(key, new ArrayList<>());
 
             List<Object> filteredData = PlayerDataDiffUtil.filterByKey(key, newData, cachedData);
+
             if (!filteredData.isEmpty()) {
                 hasUpdates = true;
             }
 
-            // Replace batch data with filtered data for sending
             batch.put(key, new ArrayList<>(filteredData));
         }
 

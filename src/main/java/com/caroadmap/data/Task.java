@@ -7,28 +7,23 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-
+@Getter
+@Setter
 public class Task {
-    @Getter
-    @Setter
+
     private String boss;
-    @Getter
-    @Setter
     private String taskName;
-    @Getter
-    @Setter
     private String taskDescription;
-    @Getter
     private TaskType type;
-    @Getter
-    @Setter
     private int tier;
-    @Getter
-    @Setter
     private boolean done;
-    @Getter
-    @Setter
+
     private Double score;
+    private Double completionProbability;
+    private Double completionPercent;
+    private Double killsRemaining;
+    private Double currentKills;
+    private Double requiredKills;
 
     // Constructor
     public Task(String boss, String taskName, String taskDescription, TaskType type, int tier, boolean done) {

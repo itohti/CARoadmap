@@ -9,19 +9,16 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 
 import javax.inject.Inject;
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-
-import static com.caroadmap.data.CsvUtils.parseCsvLine;
 
 @Slf4j
 public class RecommendTasks {
     @Getter
     private ArrayList<Task> recommendedTasks;
-    private final CSVHandler csvHandler;
+    private final RecommendationCacheHandler cacheHandler;
 
     @Setter
     private SortingType sortingType = SortingType.SCORE;
@@ -31,7 +28,7 @@ public class RecommendTasks {
     private final CARoadmapServer server;
 
     @Inject
-    public RecommendTasks(CARoadmapServer server, CSVHandler csvHandler, ConfigManager configManager) {
+    public RecommendTasks(CARoadmapServer server, ConfigManager configManager, RecommendationCacheHandler cacheHandler) {
         this.sortingType = configManager.getConfiguration("CARoadmap", "sortingType", SortingType.class);
         if (sortingType == null) {
             sortingType = SortingType.SCORE;
@@ -43,7 +40,7 @@ public class RecommendTasks {
         }
 
         this.recommendedTasks = new ArrayList<>();
-        this.csvHandler = csvHandler;
+        this.cacheHandler = cacheHandler;
         this.server = server;
     }
 
@@ -53,100 +50,141 @@ public class RecommendTasks {
 
     /**
      * Gets the recommendations from the server OR locally. First it will be locally then from the server.
-     * @param username the username of the player
-     * @param pointThreshold the point goal the user is trying to hit.
+     * @param characterId the character id of the player
      */
-    public void getRecommendations(String username, int pointThreshold) {
-        ArrayList<Task> localTasks = tryLoadLocalRecommendations();
-        if (!localTasks.isEmpty()) {
-            log.info("Loaded recommendations from local CSV.");
-            this.recommendedTasks = localTasks;
+    public void getRecommendations(long characterId) {
+        log.info("get Recommendations was called");
+        if (hasValidCache(characterId)) {
+            log.info("Using cached recommendations");
+            recommendedTasks = loadCachedRecommendations(characterId);
             return;
         }
 
-        log.info("Local CSV empty or missing. Fetching from server...");
-        fetchAndCacheRecommendationsFromServer(username, pointThreshold);
+
+        log.info("Fetching fresh recommendations");
+        fetchAndCacheRecommendationsFromServer(characterId);
     }
 
-    private ArrayList<Task> tryLoadLocalRecommendations() {
-        ArrayList<Task> taskList = new ArrayList<>();
+    private ArrayList<Task> loadCachedRecommendations(long characterId) {
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(csvHandler.getCsvPath(), StandardCharsets.UTF_8))) {
-            String headerLine = reader.readLine(); // Skip header
-            if (headerLine == null) {
-                log.warn("CSV file is empty.");
-                return taskList;
-            }
+        RecommendationCache cache =
+                cacheHandler.loadCache(characterId);
 
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] values = parseCsvLine(line);
-
-                if (values.length < CSVColumns.values().length) {
-                    continue;
-                }
-
-                try {
-                    Task task = new Task(
-                            values[CSVColumns.BOSS_NAME.ordinal()],
-                            values[CSVColumns.TASK_NAME.ordinal()],
-                            values[CSVColumns.TASK_DESCRIPTION.ordinal()],
-                            values[CSVColumns.TYPE.ordinal()],
-                            values[CSVColumns.TIER.ordinal()],
-                            values[CSVColumns.DONE.ordinal()]
-                    );
-
-                    if (CSVColumns.SCORE.ordinal() < values.length) {
-                        double score = Double.parseDouble(values[CSVColumns.SCORE.ordinal()]);
-                        task.setScore(score);
-                    }
-
-                    taskList.add(task);
-                } catch (Exception e) {
-                    log.warn("Could not parse task from CSV line: {}", line, e);
-                }
-            }
-
-            sortRecommendations(taskList);
-        } catch (Exception e) {
-            log.warn("Could not load local recommendation list. Will try server next.", e);
+        if (cache == null) {
+            return new ArrayList<>();
         }
 
-        return taskList;
+        return convertRecommendations(cache);
     }
 
-    private void fetchAndCacheRecommendationsFromServer(String username, int pointThreshold) {
-        ArrayList<Task> recommendedTasks = new ArrayList<>();
+    private ArrayList<Task> convertRecommendations(
+            RecommendationCache response
+    ) {
+
+        ArrayList<Task> tasks = new ArrayList<>();
+
+        for (RecommendedTaskDTO task : response.getRecommendedTasks()) {
+
+            try {
+
+                Task newTask = new Task(
+                        task.getBoss_name(),
+                        task.getTitle(),
+                        task.getDescription(),
+                        TaskType.valueOf(
+                                task.getType()
+                                        .toUpperCase()
+                                        .replace(" ", "_")
+                        ),
+                        task.getPoints(),
+                        false
+                );
+
+
+                newTask.setScore(
+                        task.getScore()
+                );
+
+                newTask.setCompletionProbability(
+                        task.getCompletion_probability()
+                );
+
+                newTask.setCompletionPercent(
+                        task.getCompletion_percent()
+                );
+
+                newTask.setKillsRemaining(
+                        task.getKills_remaining()
+                );
+
+                newTask.setCurrentKills(
+                        task.getCurrent_kills()
+                );
+
+                newTask.setRequiredKills(
+                        task.getRequired_kills()
+                );
+
+                tasks.add(newTask);
+
+
+            } catch(Exception e) {
+                log.error(
+                        "Failed converting recommendation",
+                        e
+                );
+            }
+        }
+
+
+        sortRecommendations(tasks);
+
+        return tasks;
+    }
+
+    private void fetchAndCacheRecommendationsFromServer(long characterId) {
+
         try {
-            GetRecommendationsResponse recommendationsList = server.getRecommendations(username, pointThreshold);
-            if (recommendationsList.getError() != null) {
-                log.error("There was an error on the server side: {}", recommendationsList.getError());
+
+            GetRecommendationsResponse response =
+                    server.getRecommendations(characterId);
+
+
+            if (response.getError() != null) {
+                log.error(
+                        "Server error: {}",
+                        response.getError()
+                );
+                return;
             }
 
-            for (RecommendedTaskDTO task : recommendationsList.recommended_tasks) {
-                try {
-                    Task newTask = new Task(
-                            task.getMonster(),
-                            task.getTask_name(),
-                            task.getDescription(),
-                            TaskType.valueOf(task.getType().toUpperCase().replace(" ", "_")),
-                            task.getTier(),
-                            false
-                    );
-                    newTask.setScore(task.getScore());
-                    recommendedTasks.add(newTask);
-                    csvHandler.createTask(newTask);
-                } catch (Exception e) {
-                    log.error("Failed to parse task from server response", e);
-                }
-            }
 
-            sortRecommendations(recommendedTasks);
-        } catch (IOException | InterruptedException e) {
-            log.error("Error fetching recommendations from server: ", e);
+            RecommendationCache cache =
+                    new RecommendationCache();
+
+            cache.setCharacterId(characterId);
+            cache.setGeneratedAt(
+                    response.getGeneratedAt()
+            );
+            cache.setRecommendedTasks(
+                    response.getRecommendedTasks()
+            );
+
+
+            cacheHandler.saveCache(characterId, cache);
+
+
+            this.recommendedTasks =
+                    convertRecommendations(cache);
+
+
+        } catch(IOException | InterruptedException e) {
+
+            log.error(
+                    "Could not fetch recommendations",
+                    e
+            );
         }
-
-        this.recommendedTasks = recommendedTasks;
     }
 
     private void sortRecommendations(ArrayList<Task> tasks) {
@@ -157,6 +195,25 @@ public class RecommendTasks {
         } else if (sortingType == SortingType.TIER) {
             tasks.sort(this.ascending ? Task.byTier() : Task.byTier().reversed());
         }
+    }
+
+    private boolean hasValidCache(long characterId) {
+
+        RecommendationCache cache =
+                cacheHandler.loadCache(characterId);
+
+
+        if (cache == null) {
+            return false;
+        }
+
+        Instant generatedAt =
+                Instant.parse(cache.getGeneratedAt());
+
+
+        return generatedAt
+                .plus(7, ChronoUnit.DAYS)
+                .isAfter(Instant.now());
     }
 
 }

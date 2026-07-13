@@ -3,12 +3,15 @@ package com.caroadmap.data;
 import java.util.*;
 
 public class PlayerDataDiffUtil {
-    public static List<Boss> filterChangedBosses(List<Object> newList, List<Object> cachedList) {
-        Map<String, Boss> clientMap = toMapByKey(newList, Boss.class, Boss::getBoss);
-        Map<String, Boss> cachedMap = toMapByKey(cachedList, Boss.class, Boss::getBoss);
+    public static List<Map<String, Object>> filterChangedBosses(List<Object> newList, List<Object> cachedList) {
+        Map<String, Map<String, Object>> client = extractBossMap(newList);
+        Map<String, Map<String, Object>> cached = extractBossMap(cachedList);
 
-        clientMap.entrySet().removeIf(e -> Objects.equals(e.getValue(), cachedMap.get(e.getKey())));
-        return new ArrayList<>(clientMap.values());
+        client.entrySet().removeIf(e ->
+                Objects.equals(e.getValue(), cached.get(e.getKey()))
+        );
+
+        return new ArrayList<>(client.values());
     }
 
     public static List<Map<String, Object>> filterChangedTasks(List<Object> newList, List<Object> cachedList) {
@@ -73,15 +76,17 @@ public class PlayerDataDiffUtil {
         return map;
     }
 
-    public static <K, T> Map<K, T> toMapByKey(List<?> list, Class<T> clazz, java.util.function.Function<T, K> keyExtractor) {
-        Map<K, T> result = new HashMap<>();
-        for (Object o : list) {
-            if (clazz.isInstance(o)) {
-                T item = clazz.cast(o);
-                result.put(keyExtractor.apply(item), item);
+    private static Map<String, Map<String, Object>> extractBossMap(List<Object> rawList) {
+        Map<String, Map<String, Object>> map = new HashMap<>();
+
+        for (Object obj : rawList) {
+            if (obj instanceof Map) {
+                Map<String, Object> boss = (Map<String, Object>) obj;
+                map.put((String) boss.get("boss"), boss);
             }
         }
-        return result;
+
+        return map;
     }
 
     public static List<Object> filterByKey(String key, List<Object> newVal, List<Object> cachedVal) {
@@ -89,7 +94,7 @@ public class PlayerDataDiffUtil {
             return new ArrayList<Object>(filterChangedBosses(newVal, cachedVal));
         } else if ("tasks".equals(key)) {
             return new ArrayList<Object>(filterChangedTasks(newVal, cachedVal));
-        } else if ("combat_stats".equals(key)) {
+        } else if ("skills".equals(key)) {
             return new ArrayList<Object>(filterChangedStats(newVal, cachedVal));
         } else {
             return new ArrayList<Object>();

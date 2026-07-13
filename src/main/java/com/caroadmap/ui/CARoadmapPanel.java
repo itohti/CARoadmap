@@ -4,6 +4,7 @@ import com.caroadmap.CARoadmapPlugin;
 import com.caroadmap.data.RecommendTasks;
 import com.caroadmap.data.SortingType;
 import com.caroadmap.data.Task;
+import com.caroadmap.data.TaskType;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,7 +52,7 @@ public class CARoadmapPanel extends PluginPanel{
     @Setter
     private RecommendTasks recommendTasks;
     @Setter
-    private String username;
+    private Long characterId = null;
     private final ConfigManager configManager;
     private ArrayList<Task> recommendedList;
     private final Set<Task> completedList;
@@ -215,7 +216,7 @@ public class CARoadmapPanel extends PluginPanel{
                 acnOrDsc.setIcon(ascending ? new ImageIcon(ascendingIcon) : new ImageIcon(descendingIcon));
                 acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
                 recommendTasks.setAscending(!recommendTasks.isAscending());
-                recommendTasks.getRecommendations(username, 1014);
+                recommendTasks.getRecommendations(characterId);
                 refresh();
             }
         });
@@ -228,7 +229,7 @@ public class CARoadmapPanel extends PluginPanel{
         recommendationBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (username != null) {
+                if (characterId != null) {
                     refresh();
                 }
                 else {
@@ -266,7 +267,7 @@ public class CARoadmapPanel extends PluginPanel{
                     recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
                     configManager.setConfiguration("CARoadmap", "sortingType", SortingType.valueOf(selected.toUpperCase()));
                 }
-                recommendTasks.getRecommendations(username, 1014);
+                recommendTasks.getRecommendations(characterId);
                 refresh();
             }
         });
@@ -303,8 +304,7 @@ public class CARoadmapPanel extends PluginPanel{
 
         for (Task task : combatTasks)
         {
-            combatContainer.add(new DisplayTask(task, spriteManager));
-            combatContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+            addTaskToContainers(task, combatContainer);
         }
 
         combatContainer.revalidate();
@@ -342,16 +342,25 @@ public class CARoadmapPanel extends PluginPanel{
         recommendedContainer.removeAll();
         completedContainer.removeAll();
         for (Task task : recommendedList) {
-            recommendedContainer.add(new DisplayTask(task, spriteManager));
-            recommendedContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+            addTaskToContainers(task, recommendedContainer);
         }
         for (Task task: completedList) {
-            completedContainer.add(new DisplayTask(task, spriteManager));
-            completedContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+            addTaskToContainers(task, completedContainer);
         }
         recommendedContainer.revalidate();
         recommendedContainer.repaint();
         completedContainer.revalidate();
         completedContainer.repaint();
+    }
+
+    private void addTaskToContainers(Task task, JPanel container) {
+        if (task.getType() == TaskType.KILL_COUNT) {
+            container.add(new KillCountDisplayTask(task, spriteManager));
+            container.add(Box.createRigidArea(new Dimension(0, 5)));
+        }
+        else {
+            container.add(new DisplayTask(task, spriteManager));
+            container.add(Box.createRigidArea(new Dimension(0, 5)));
+        }
     }
 }
