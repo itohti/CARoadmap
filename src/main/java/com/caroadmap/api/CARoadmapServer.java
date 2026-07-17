@@ -78,6 +78,58 @@ public class CARoadmapServer {
         }
     }
 
+    public boolean updatePlayerBossData(long accountHash, String bossName, int killCount) {
+        log.info("Updating kill count for boss {}", bossName);
+        Map<String, Object> dataToSend = new HashMap<>();
+
+        dataToSend.put("character_id", accountHash);
+        dataToSend.put("boss_name", bossName);
+        dataToSend.put("kc", killCount);
+
+        try {
+            String jsonBody = gson.toJson(dataToSend);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/store_player_boss_data"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return response.statusCode() == 200;
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            log.error("Could not insert player boss data.");
+            return false;
+        }
+    }
+
+    public boolean updatePlayerTaskStatus(long accountHash, String taskTitle) {
+        log.info("Updating combat achievement task [{}] to done", taskTitle);
+        Map<String, Object> dataToSend = new HashMap<>();
+
+        dataToSend.put("character_id", accountHash);
+        dataToSend.put("task_name", taskTitle);
+        dataToSend.put("is_done", true);
+
+        try {
+            String jsonBody = gson.toJson(dataToSend);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SERVER_URL + "/store_player_task_status"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return response.statusCode() == 200;
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            log.error("Could not insert player task status.");
+            return false;
+        }
+    }
+
     /**
      * This function will fetch the tasks from the boss.
      * @return an array of tasks from the boss inputted. On error, it will return an EMPTY array.

@@ -22,6 +22,7 @@ public class CombatChecklistSection extends JPanel
 
         JLabel title = new JLabel("Encounter Tasks");
         title.setHorizontalAlignment(SwingConstants.CENTER);
+        title.setFont(FontManager.getRunescapeBoldFont());
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
         title.setMaximumSize(new Dimension(Integer.MAX_VALUE, title.getPreferredSize().height));
 

@@ -197,7 +197,7 @@ public class CARoadmapPlugin extends Plugin
 		if (session != null)
 		{
 			// Highest priority: player left the boss instance.
-			if (hasLeftInstance(session))
+			if (session.isInstanced() && hasLeftInstance(session))
 			{
 				log.info("Player left instance");
 
@@ -281,6 +281,10 @@ public class CARoadmapPlugin extends Plugin
 								killCount
 						);
 
+						generalExecutor.submit(() -> {
+							server.updatePlayerBossData(client.getAccountHash(), normalizeBossName(boss), killCount);
+						});
+
 						session.incrementKillStreak();
 
 						session.bossDefeated();
@@ -295,53 +299,55 @@ public class CARoadmapPlugin extends Plugin
 
 			// check to see if the player completed a combat task.
 			if (msg.contains("combat task") && msg.contains("completed")) {
-				generalExecutor.submit(() -> {
-					try {
-						Pattern pattern = Pattern.compile("combat task: <col=\\w+>(.*?)</col>");
-						Matcher matcher = pattern.matcher(msg);
+				try {
+					Pattern pattern = Pattern.compile(
+							"combat task: (.*?) \\(\\d+ points\\)",
+							Pattern.CASE_INSENSITIVE
+					);
+					Matcher matcher = pattern.matcher(msg);
 
-						if (matcher.find()) {
-							String taskName = matcher.group(1).trim();
+					if (matcher.find()) {
+						String taskName = matcher.group(1).trim();
 
-							boolean removed = caRoadmapPanel.taskCompleted(taskName);
-							if (removed) {
-								log.info("Successfully marked task as complete");
-							}
-							caRoadmapPanel.refresh();
+						boolean removed = caRoadmapPanel.taskCompleted(taskName);
+						if (removed) {
+							log.info("Successfully marked task as complete");
 						}
+
+						generalExecutor.submit(() -> {
+							server.updatePlayerTaskStatus(client.getAccountHash(), taskName);
+						});
+
+						caRoadmapPanel.refresh();
 					}
-					catch (Exception e) {
-						log.error("Something went wrong with getting task name", e);
-					}
-				});
+				}
+				catch (Exception e) {
+					log.error("Something went wrong with getting task name", e);
+				}
 			}
 		}
 	}
 
-	@Subscribe
-	public void onWidgetLoaded(WidgetLoaded event) {
-		// we can see if the user completed a task with the widget pop up now.
-		if (event.getGroupId() == 660) {
-			Widget popupTextWidget = client.getWidget(660, 8);
-			if (popupTextWidget != null && popupTextWidget.getText() != null) {
-				String rawText = popupTextWidget.getText();
-				log.info("Combat task popup text: {}", rawText);
-
-				String cleanText = rawText.replaceAll("<[^>]+>", "").trim();
-				log.info("Cleaned task text: {}", cleanText);
-			}
-		}
-	}
+//	@Subscribe
+//	public void onWidgetLoaded(WidgetLoaded event) {
+//		// we can see if the user completed a task with the widget pop up now.
+//		if (event.getGroupId() == 660) {
+//			Widget popupTextWidget = client.getWidget(660, 8);
+//			if (popupTextWidget != null && popupTextWidget.getText() != null) {
+//				String rawText = popupTextWidget.getText();
+//				log.info("Combat task popup text: {}", rawText);
+//
+//				String cleanText = rawText.replaceAll("<[^>]+>", "").trim();
+//				log.info("Cleaned task text: {}", cleanText);
+//			}
+//		}
+//	}
 
 	private boolean hasLeftInstance(CombatSession session)
 	{
-		if (!client.isInInstancedRegion())
-		{
-			return true;
-		}
-
-		return false;
-	}
+		WorldView worldView = client.getTopLevelWorldView();
+        return !worldView.isInstance();
+    }
 
 	private NPC getEngagedBoss()
 	{
@@ -379,7 +385,8 @@ public class CARoadmapPlugin extends Plugin
 
 	private void startCombatSession(NPC boss)
 	{
-		combatSessionManager.startSession(boss);
+		WorldView worldView = client.getTopLevelWorldView();
+		combatSessionManager.startSession(boss, worldView.isInstance());
 
 		CombatSession session =
 				combatSessionManager.getCurrentSession();

@@ -29,6 +29,9 @@ public class CombatSession {
     private int killStreak = 0;
 
     @Getter
+    private final boolean instanced;
+
+    @Getter
     @Setter
     private volatile List<Task> tasks;
     private final Set<String> failedTasks = new HashSet<>();
@@ -40,12 +43,13 @@ public class CombatSession {
     private long finishTime;
 
 
-    public CombatSession(NPC boss)
+    public CombatSession(NPC boss, boolean instanced)
     {
         this.boss = boss;
         this.bossName = boss.getName();
         this.startTime = System.currentTimeMillis();
         this.active = true;
+        this.instanced = instanced;
 
         log.info("CombatSession created for {}", bossName);
     }

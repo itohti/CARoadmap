@@ -9,8 +9,8 @@ public class CombatSessionManager {
     @Getter
     private CombatSession currentSession;
 
-    public void startSession(NPC boss) {
-        currentSession = new CombatSession(boss);
+    public void startSession(NPC boss, boolean instanced) {
+        currentSession = new CombatSession(boss, instanced);
 
         log.info(
                 "Started combat session: {}",
