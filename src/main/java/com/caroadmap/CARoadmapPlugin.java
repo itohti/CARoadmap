@@ -78,7 +78,6 @@ public class CARoadmapPlugin extends Plugin
 	private InfoBoxManager infoBoxManager;
 
 	private CARoadmapPanel caRoadmapPanel;
-	private CSVHandler recommendationsCSV;
 	private RecommendationCacheHandler recommendationCacheHandler;
 	private NavigationButton navButton;
 
@@ -92,8 +91,6 @@ public class CARoadmapPlugin extends Plugin
 	private RecommendTasks recommendTasks;
 	private String username;
 	private boolean hasFetched = false;
-	private int inCombatCounter = 0;
-	private boolean wasInCombat = false;
 
 	private ExecutorService databaseExecutor;
 	private ExecutorService generalExecutor;
@@ -306,8 +303,6 @@ public class CARoadmapPlugin extends Plugin
 						if (matcher.find()) {
 							String taskName = matcher.group(1).trim();
 
-							recommendationsCSV.updateTask(taskName);
-
 							boolean removed = caRoadmapPanel.taskCompleted(taskName);
 							if (removed) {
 								log.info("Successfully marked task as complete");
@@ -450,7 +445,6 @@ public class CARoadmapPlugin extends Plugin
 		this.username = getUsername();
 		long accountHash = client.getAccountHash();
 		// Initialize classes that are dependent on username
-		this.recommendationsCSV = new CSVHandler(username, "recommendations_list");
 		this.recommendTasks = new RecommendTasks(server, configManager, recommendationCacheHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 		this.wiseOldMan = new WiseOldMan(username);
