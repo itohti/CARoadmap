@@ -80,62 +80,19 @@ public class RecommendTasks {
     private ArrayList<Task> convertRecommendations(
             RecommendationCache response
     ) {
-
         ArrayList<Task> tasks = new ArrayList<>();
 
-        for (RecommendedTaskDTO task : response.getRecommendedTasks()) {
-
-            try {
-
-                Task newTask = new Task(
-                        task.getBoss_name(),
-                        task.getTitle(),
-                        task.getDescription(),
-                        TaskType.valueOf(
-                                task.getType()
-                                        .toUpperCase()
-                                        .replace(" ", "_")
-                        ),
-                        task.getPoints(),
-                        false
-                );
-
-
-                newTask.setScore(
-                        task.getScore()
-                );
-
-                newTask.setCompletionProbability(
-                        task.getCompletion_probability()
-                );
-
-                newTask.setCompletionPercent(
-                        task.getCompletion_percent()
-                );
-
-                newTask.setKillsRemaining(
-                        task.getKills_remaining()
-                );
-
-                newTask.setCurrentKills(
-                        task.getCurrent_kills()
-                );
-
-                newTask.setRequiredKills(
-                        task.getRequired_kills()
-                );
-
-                tasks.add(newTask);
-
-
-            } catch(Exception e) {
-                log.error(
-                        "Failed converting recommendation",
-                        e
-                );
+        for (RecommendedTaskDTO dto : response.getRecommendedTasks())
+        {
+            try
+            {
+                tasks.add(TaskMapper.fromDTO(dto));
+            }
+            catch (Exception e)
+            {
+                log.error("Failed converting recommendation", e);
             }
         }
-
 
         sortRecommendations(tasks);
 

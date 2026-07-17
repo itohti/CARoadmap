@@ -43,30 +43,10 @@ public class DisplayTask extends JPanel {
         TIER_ICON_MAP.put(6, "/grandmaster_tier.png");
     }
 
-    private static final Map<String, HiscoreSkill> HISCORE_ALIASES = Map.ofEntries(
-            Map.entry("theatre of blood", HiscoreSkill.THEATRE_OF_BLOOD),
-            Map.entry("theatre of blood entry mode", HiscoreSkill.THEATRE_OF_BLOOD),
-            Map.entry("theatre of blood hard mode", HiscoreSkill.THEATRE_OF_BLOOD),
-
-            Map.entry("chambers of xeric", HiscoreSkill.CHAMBERS_OF_XERIC),
-            Map.entry("chambers of xeric challenge mode", HiscoreSkill.CHAMBERS_OF_XERIC),
-
-            Map.entry("tombs of amascut", HiscoreSkill.TOMBS_OF_AMASCUT),
-            Map.entry("tombs of amascut expert mode", HiscoreSkill.TOMBS_OF_AMASCUT_EXPERT),
-
-            Map.entry("barrows", HiscoreSkill.BARROWS_CHESTS),
-            Map.entry("moons of peril", HiscoreSkill.LUNAR_CHESTS),
-            Map.entry("crystalline hunllef", HiscoreSkill.THE_GAUNTLET),
-            Map.entry("corrupted hunllef", HiscoreSkill.THE_CORRUPTED_GAUNTLET),
-            Map.entry("fortis colosseum", HiscoreSkill.SOL_HEREDIT),
-            Map.entry("tzhaar ket raks challenges", HiscoreSkill.TZTOK_JAD),
-            Map.entry("royal titans", HiscoreSkill.THE_ROYAL_TITANS),
-            Map.entry("the nightmare", HiscoreSkill.NIGHTMARE)
-    );
-
     public DisplayTask(Task task, SpriteManager spriteManager) {
         this.task = task;
-        bossIcon = createBossIcon(spriteManager);
+
+        bossIcon = BossIconUtil.createBossIcon(task.getBoss(), spriteManager);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBackground(ColorScheme.DARKER_GRAY_COLOR);
         setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -218,34 +198,6 @@ public class DisplayTask extends JPanel {
         }
     }
 
-    protected JLabel createBossIcon(SpriteManager spriteManager)
-    {
-        JLabel icon = new JLabel();
-
-        HiscoreSkill skill = getBossSkill(task.getBoss());
-
-        if (skill == null)
-        {
-            log.debug("Could not find {} hiscore sprite", task.getBoss());
-        }
-
-        spriteManager.getSpriteAsync(
-                skill == null ? TAB_COMBAT : skill.getSpriteId(),
-                0,
-                sprite -> SwingUtilities.invokeLater(() ->
-                {
-                    BufferedImage scaled =
-                            ImageUtil.resizeImage(
-                                    ImageUtil.resizeCanvas(sprite, 25, 25),
-                                    20,
-                                    20);
-
-                    icon.setIcon(new ImageIcon(scaled));
-                }));
-
-        return icon;
-    }
-
     protected void addRow(
             JPanel panel,
             GridBagConstraints gbc,
@@ -297,71 +249,6 @@ public class DisplayTask extends JPanel {
     private BufferedImage getTierIcon(int tier) {
         BufferedImage icon = ImageUtil.loadImageResource(CARoadmapPlugin.class, TIER_ICON_MAP.get(tier));
         return ImageUtil.resizeImage(ImageUtil.resizeCanvas(icon, 25, 25), 20, 20);
-    }
-
-    private static String normalizeBossName(String metric) {
-        return metric
-                .toLowerCase()
-                .replace("_", " ")
-                .replace(":", " ")
-                .replace("-", " ")
-                .replace("'", "")
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
-    private static HiscoreSkill getBossSkill(String boss) {
-        String normalized = normalizeBossName(boss);
-
-        // Exact alias first
-        HiscoreSkill alias = HISCORE_ALIASES.get(normalized);
-        if (alias != null) {
-            return alias;
-        }
-
-        // Try automatic enum lookup
-        try {
-            return HiscoreSkill.valueOf(
-                    normalized
-                            .toUpperCase()
-                            .replace(" ", "_")
-            );
-        }
-        catch (IllegalArgumentException ignored) {
-        }
-
-        // Try prepending THE_
-        try {
-            return HiscoreSkill.valueOf(
-                    "THE_" + normalized
-                            .toUpperCase()
-                            .replace(" ", "_")
-            );
-        }
-        catch (IllegalArgumentException ignored) {
-        }
-
-        // Try stripping suffixes
-        String[] parts = normalized.split(" ");
-
-        for (int i = parts.length - 1; i > 0; i--) {
-            String candidate = String.join("_", Arrays.copyOf(parts, i))
-                    .toUpperCase();
-
-            try {
-                return HiscoreSkill.valueOf(candidate);
-            }
-            catch (IllegalArgumentException ignored) {
-            }
-
-            try {
-                return HiscoreSkill.valueOf("THE_" + candidate);
-            }
-            catch (IllegalArgumentException ignored) {
-            }
-        }
-
-        return null;
     }
 
     protected Color getProbabilityColor(double probability) {

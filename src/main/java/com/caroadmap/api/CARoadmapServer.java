@@ -32,7 +32,8 @@ import java.util.Map;
 public class CARoadmapServer {
     private final HttpClient client;
     private final Gson gson;
-    private final String SERVER_URL = "https://kxin971pll.execute-api.us-east-1.amazonaws.com";
+//    private final String SERVER_URL = "https://kxin971pll.execute-api.us-east-1.amazonaws.com";
+    private final String SERVER_URL = "http://localhost:8080";
     @Setter
     @Getter
     private String apiKey;
@@ -84,8 +85,8 @@ public class CARoadmapServer {
     public TaskDTO[] fetchTaskFromBoss(String boss, long accountHash) {
         Map<String, Object> payload = new HashMap<>();
 
-        payload.put("accountHash", accountHash);
-        payload.put("boss", boss);
+        payload.put("character_id", accountHash);
+        payload.put("boss_name", boss);
 
         try {
             String jsonBody = gson.toJson(payload);
@@ -100,7 +101,7 @@ public class CARoadmapServer {
 
             TaskFromBossResponse parsedResponse = gson.fromJson(response.body(), TaskFromBossResponse.class);
 
-            return parsedResponse.getIncomplete_tasks().toArray(new TaskDTO[0]);
+            return parsedResponse.getTasks().toArray(new TaskDTO[0]);
         }
         catch (Exception e) {
             log.error("Could not fetch task information on this boss {} because of {}", boss, e.toString());

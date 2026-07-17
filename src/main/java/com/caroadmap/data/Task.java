@@ -24,6 +24,11 @@ public class Task {
     private Double killsRemaining;
     private Double currentKills;
     private Double requiredKills;
+    private Boolean hasPb;
+    private Double secondsToSave;
+    private Double targetTimeSeconds;
+    private Double playerTimeSeconds;
+    private Double killProgressRatio;
 
     // Constructor
     public Task(String boss, String taskName, String taskDescription, TaskType type, int tier, boolean done) {
@@ -66,21 +71,24 @@ public class Task {
 
     /**
      * toString method for Task
-     * @return boss, taskName, taskDescription, type, tier, done
      */
-    public String toString() {
-        // Escape any quotes in all fields by doubling them
-        String escapedBoss = boss.replace("\"", "\"\"");
-        String escapedTaskName = taskName.replace("\"", "\"\"");
-        String escapedDescription = taskDescription.replace("\"", "\"\"");
-
-        return String.format("%s,\"%s\",\"%s\",%s,%d,%b",
-                escapedBoss,
-                escapedTaskName,
-                escapedDescription,
-                type.name(),
-                tier,
-                done);
+    @Override
+    public String toString()
+    {
+        return String.format(
+                "Task{name='%s', type=%s, boss='%s', " +
+                        "killsRemaining=%s, currentKills=%s, requiredKills=%s, " +
+                        "hasPb=%s, targetTime=%s, playerTime=%s}",
+                taskName,
+                type,
+                boss,
+                killsRemaining,
+                currentKills,
+                requiredKills,
+                hasPb,
+                targetTimeSeconds,
+                playerTimeSeconds
+        );
     }
 
     @Override

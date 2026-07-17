@@ -1,6 +1,8 @@
 package com.caroadmap.ui;
 
 import com.caroadmap.CARoadmapPlugin;
+import com.caroadmap.CombatSession;
+import com.caroadmap.CombatSessionManager;
 import com.caroadmap.data.RecommendTasks;
 import com.caroadmap.data.SortingType;
 import com.caroadmap.data.Task;
@@ -44,10 +46,16 @@ public class CARoadmapPanel extends PluginPanel{
     private final JPanel recommendationView = new JPanel();
     private final JPanel combatView = new JPanel();
 
+    private final CombatHeaderPanel combatHeaderPanel;
+
+    // sections for combat view
+    private final SpeedCombatSection speedCombatSection = new SpeedCombatSection();
+    private final KillCountCombatSection killCountCombatSection = new KillCountCombatSection();
+    private final StaminaCombatSection staminaCombatSection = new StaminaCombatSection();
+    private final CombatChecklistSection combatCheckListSection = new CombatChecklistSection();
+
     private final JPanel recommendedContainer;
     private final JPanel completedContainer;
-
-    private final JPanel combatContainer = new JPanel();
 
     @Setter
     private RecommendTasks recommendTasks;
@@ -60,12 +68,16 @@ public class CARoadmapPanel extends PluginPanel{
     private Boolean ascending;
     private SortingType sortingType;
 
+    private final CombatSessionManager combatSessionManager;
+
     @Inject
-    public CARoadmapPanel(SpriteManager spriteManager, ConfigManager configManager)
+    public CARoadmapPanel(SpriteManager spriteManager, ConfigManager configManager, CombatSessionManager combatSessionManager)
     {
         super(false);
         this.spriteManager = spriteManager;
         this.configManager = configManager;
+        this.combatSessionManager = combatSessionManager;
+        this.combatHeaderPanel = new CombatHeaderPanel(spriteManager);
 
         this.ascending = configManager.getConfiguration("CARoadmap", "isAscending", Boolean.class);
         if (this.ascending == null)
@@ -177,13 +189,25 @@ public class CARoadmapPanel extends PluginPanel{
         combatView.setLayout(new BoxLayout(combatView, BoxLayout.Y_AXIS));
         combatView.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-        JLabel combatLabel = new JLabel("Combat Mode Active");
-        combatLabel.setFont(FontManager.getRunescapeBoldFont());
+        combatView.add(combatHeaderPanel);
 
-        combatContainer.setLayout(new BoxLayout(combatContainer, BoxLayout.Y_AXIS));
+        combatView.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        combatView.add(combatLabel);
-        combatView.add(combatContainer);
+        combatView.add(speedCombatSection);
+
+        combatView.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        combatView.add(killCountCombatSection);
+
+        combatView.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        combatView.add(staminaCombatSection);
+
+        combatView.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        combatView.add(combatCheckListSection);
+
+
 
         // =========================
         // CARD LAYOUT SWITCHER
@@ -284,6 +308,22 @@ public class CARoadmapPanel extends PluginPanel{
         updateTaskDisplay();
     }
 
+    public void refreshCombat()
+    {
+        CombatSession session = combatSessionManager.getCurrentSession();
+
+        if (session == null)
+        {
+            return;
+        }
+
+        combatHeaderPanel.update(session);
+        speedCombatSection.update(session);
+        killCountCombatSection.update(session);
+        staminaCombatSection.update(session);
+        combatCheckListSection.update(session);
+    }
+
     public void setMode(PanelMode mode)
     {
         this.panelMode = mode;
@@ -295,20 +335,6 @@ public class CARoadmapPanel extends PluginPanel{
 
         revalidate();
         repaint();
-    }
-
-    public void setCombatTasks(List<Task> combatTasks)
-    {
-        log.info("UI TASKS SIZE: {}", combatTasks.size());
-        combatContainer.removeAll();
-
-        for (Task task : combatTasks)
-        {
-            addTaskToContainers(task, combatContainer);
-        }
-
-        combatContainer.revalidate();
-        combatContainer.repaint();
     }
 
     public boolean taskCompleted(String taskName) {
@@ -356,6 +382,10 @@ public class CARoadmapPanel extends PluginPanel{
     private void addTaskToContainers(Task task, JPanel container) {
         if (task.getType() == TaskType.KILL_COUNT) {
             container.add(new KillCountDisplayTask(task, spriteManager));
+            container.add(Box.createRigidArea(new Dimension(0, 5)));
+        }
+        else if (task.getType() == TaskType.SPEED) {
+            container.add(new SpeedDisplayTask(task, spriteManager));
             container.add(Box.createRigidArea(new Dimension(0, 5)));
         }
         else {

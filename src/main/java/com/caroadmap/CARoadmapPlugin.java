@@ -42,6 +42,7 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import net.runelite.client.util.Text;
 
 @Slf4j
 @PluginDescriptor(
@@ -97,10 +98,12 @@ public class CARoadmapPlugin extends Plugin
 	private ExecutorService databaseExecutor;
 	private ExecutorService generalExecutor;
 
+	private final CombatSessionManager combatSessionManager = new CombatSessionManager();
+
 	@Override
 	protected void startUp() throws Exception
 	{
-		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager);
+		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager, combatSessionManager);
 		this.recommendationCacheHandler = new RecommendationCacheHandler();
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
@@ -165,46 +168,131 @@ public class CARoadmapPlugin extends Plugin
 		}
 
 		// this will get what the player is interacting with.
-		// if the player is interacting with a boss it will spawn the CAOverlay
-		Player localPlayer = client.getLocalPlayer();
-		Actor target = localPlayer.getInteracting();
+		NPC engagedBoss = getEngagedBoss();
 
-		if (target != null && bossLookup.get(normalizeBossName(Objects.requireNonNull(target.getName()))) != null) {
-			inCombatCounter = 16;
-		}
-		else if (inCombatCounter > 0){
-			inCombatCounter--;
-		}
+		CombatSession session =
+				combatSessionManager.getCurrentSession();
 
-		boolean isInCombat = inCombatCounter > 0;
 
-		if (isInCombat && !wasInCombat) {
-			if (target == null)
-				return;
-
-			String name = target.getName();
-			generalExecutor.submit(() -> onEnterCombat(name));
-		}
-
-		if (!isInCombat && wasInCombat) {
-			onExitCombat();
+		/*
+		 * Boss is actively engaging the player
+		 */
+		if (engagedBoss != null)
+		{
+			if (session == null)
+			{
+				startCombatSession(engagedBoss);
+			}
+			else
+			{
+				session.updateBoss(engagedBoss);
+				session.heartbeat();
+			}
 		}
 
-		wasInCombat = isInCombat;
+
+		/*
+		 * Existing session but boss is temporarily inactive
+		 */
+		session =
+				combatSessionManager.getCurrentSession();
+
+		if (session != null)
+		{
+			// Highest priority: player left the boss instance.
+			if (hasLeftInstance(session))
+			{
+				log.info("Player left instance");
+
+				session.invalidateStreak();
+				combatSessionManager.endSession();
+			}
+			// Fallback
+			else if (session.shouldEnd())
+			{
+				log.info(
+						"Combat session ended due to inactivity"
+				);
+
+				combatSessionManager.endSession();
+			}
+		}
+
+
+		/*
+		 * Update combat UI
+		 */
+		session =
+				combatSessionManager.getCurrentSession();
+
+		if (session != null)
+		{
+			SwingUtilities.invokeLater(() ->
+					caRoadmapPanel.refreshCombat()
+			);
+		}
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		if (event.getType() == ChatMessageType.GAMEMESSAGE) {
-			String msg = event.getMessage();
+			String msg = Text.removeTags(event.getMessage());
 			// check to see if the player defeated a boss or raid.
-			Pattern killCountPattern = Pattern.compile("Your (.+?) (?:kill count|count) is: (\\d+)?");
+			Pattern killCountPattern = Pattern.compile("Your (.+?) (?:kill count|count) is: (\\d+)");
 			Matcher killCountMatcher = killCountPattern.matcher(msg);
+
+			Pattern failedTaskPattern = Pattern.compile("^You have failed (.*?):");
+			Matcher failedTaskMatcher = failedTaskPattern.matcher(msg);
+
+			if (failedTaskMatcher.find())
+			{
+				String taskTitle = failedTaskMatcher.group(1).trim();
+
+				CombatSession session =
+						combatSessionManager.getCurrentSession();
+
+				if (session != null)
+				{
+					log.info("Combat task failed: {}", taskTitle);
+
+					session.failTask(taskTitle);
+
+					SwingUtilities.invokeLater(() ->
+							caRoadmapPanel.refreshCombat()
+					);
+				}
+			}
 
 			if (killCountMatcher.find()) {
 				String boss = killCountMatcher.group(1);
 				int killCount = Integer.parseInt(killCountMatcher.group(2));
-				// do something when you get a kill count.
+				CombatSession session =
+						combatSessionManager.getCurrentSession();
+
+				if (session != null)
+				{
+					if (session.getBossName()
+							.equalsIgnoreCase(boss))
+					{
+						log.info(
+								"Updating combat session kill count {} -> {}",
+								boss,
+								killCount
+						);
+
+						combatSessionManager.updateKillCount(
+								killCount
+						);
+
+						session.incrementKillStreak();
+
+						session.bossDefeated();
+
+						SwingUtilities.invokeLater(() ->
+								caRoadmapPanel.refreshCombat()
+						);
+					}
+				}
 			}
 
 
@@ -250,98 +338,111 @@ public class CARoadmapPlugin extends Plugin
 		}
 	}
 
-	private void onEnterCombat(String targetName) {
-		// check to see if the player is fighting a boss.
-		log.info("In combat");
-		if (targetName == null)
+	private boolean hasLeftInstance(CombatSession session)
+	{
+		if (!client.isInInstancedRegion())
 		{
-			log.info("Target name is null, skipping combat detection");
-			return;
+			return true;
 		}
 
-		String normalized = normalizeBossName(targetName);
+		return false;
+	}
 
-		Boss boss = bossLookup.get(normalized);
+	private NPC getEngagedBoss()
+	{
+		Player player = client.getLocalPlayer();
 
-		if (boss == null) {
-			log.info("No boss match for {}", normalized);
-			return;
-		}
-		// the player is fighting a boss.
-		TaskDTO[] incompleteTasks = server.fetchTaskFromBoss(boss.getBoss(), client.getAccountHash());
-		log.info(Arrays.toString(incompleteTasks));
-		List<Task> uiTasks = new ArrayList<>();
-		for (TaskDTO dto : incompleteTasks)
+		WorldView worldView = client.getTopLevelWorldView();
+
+		if (worldView == null)
 		{
-			try
+			return null;
+		}
+
+		for (NPC npc : worldView.npcs())
+		{
+			if (npc == null || npc.getName() == null)
 			{
-				Task task = TaskMapper.fromDTO(dto);
-				uiTasks.add(task);
+				continue;
 			}
-			catch (Exception e)
+
+			String bossName = normalizeBossName(npc.getName());
+
+			if (!bossLookup.containsKey(bossName))
 			{
-				log.error("Failed mapping DTO: {}", dto, e);
+				continue;
+			}
+
+			if (npc.getInteracting() == player)
+			{
+				return npc;
 			}
 		}
 
-		SwingUtilities.invokeLater(() ->
+		return null;
+	}
+
+	private void startCombatSession(NPC boss)
+	{
+		combatSessionManager.startSession(boss);
+
+		CombatSession session =
+				combatSessionManager.getCurrentSession();
+
+
+		log.info(
+				"Started combat session for {}",
+				session.getBossName()
+		);
+
+
+		generalExecutor.submit(() ->
 		{
-			caRoadmapPanel.setCombatTasks(uiTasks);
-			caRoadmapPanel.setMode(CARoadmapPanel.PanelMode.COMBAT);
+			log.info(
+					"Fetching combat tasks for {}",
+					session.getBossName()
+			);
+
+
+			ArrayList<Task> incompleteTasks =
+					new ArrayList<>();
+
+
+			for (TaskDTO dto :
+					server.fetchTaskFromBoss(
+							normalizeBossName(session.getBossName()),
+							client.getAccountHash()
+					))
+			{
+				try
+				{
+					incompleteTasks.add(
+							TaskMapper.fromDTO(dto)
+					);
+				}
+				catch (Exception e)
+				{
+					log.error(
+							"Failed converting task",
+							e
+					);
+				}
+			}
+
+
+			session.setTasks(incompleteTasks);
+
+
+			log.info(
+					"Combat session tasks loaded: {}",
+					incompleteTasks
+			);
+
+
+			SwingUtilities.invokeLater(() ->
+					caRoadmapPanel.refreshCombat()
+			);
 		});
-	}
-
-	private void onExitCombat() {
-		// tear down ui
-		log.info("out of combat");
-	}
-
-
-	// WE PROBABLY WANT TO MOVE THESE METHODS TO ANOTHER CLASS.
-	/**
-	 * This will extract the amount of seconds the player needs to kill a boss to complete the combat achievement.
-	 * @param description is the description of the task
-	 * @return the amount of seconds needed to complete the task but if it could not parse description it will return 0.
-	 */
-	private int extractSpeedRunningTime(String description) {
-		int totalSeconds = 0;
-
-		Pattern minutePattern = Pattern.compile("(\\d+) minute[s]?");
-		Matcher minuteMatcher = minutePattern.matcher(description);
-
-		if (minuteMatcher.find()) {
-			int minutes = Integer.parseInt(minuteMatcher.group(1));
-
-			totalSeconds += minutes * 60;
-		}
-
-		Pattern secondPattern = Pattern.compile("(\\d+) second[s]?");
-		Matcher secondMatcher = secondPattern.matcher(description);
-
-		if (secondMatcher.find()) {
-			int seconds = Integer.parseInt(secondMatcher.group(1));
-
-			totalSeconds += seconds;
-		}
-
-		return totalSeconds;
-	}
-
-	/**
-	 * This method will extract the amount of times the player needs to kill a boss to complete the combat achievement task.
-	 * @param description is the description of the combat achievement
-	 * @return the amount of kills needed to complete the task. If it can't find it then it will default to 0.
-	 */
-	private int extractKillsToComplete(String description) {
-		// btw this will return nothing for any of the awakened kill count tasks from dt2 bosses.
-		Pattern killToCompletePattern = Pattern.compile("(\\d+) time[s]?");
-		Matcher killToCompleteMatcher = killToCompletePattern.matcher(description);
-
-		if (killToCompleteMatcher.find()) {
-			return Integer.parseInt(killToCompleteMatcher.group(1));
-		}
-
-		return 0;
 	}
 
 	private void fetchData() {
