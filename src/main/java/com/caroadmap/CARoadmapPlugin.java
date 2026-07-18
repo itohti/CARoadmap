@@ -316,6 +316,10 @@ public class CARoadmapPlugin extends Plugin
 							log.info("Successfully marked task as complete");
 						}
 
+						CombatSession session = combatSessionManager.getCurrentSession();
+
+						session.completeTask(taskName);
+
 						generalExecutor.submit(() -> {
 							server.updatePlayerTaskStatus(client.getAccountHash(), taskName);
 						});

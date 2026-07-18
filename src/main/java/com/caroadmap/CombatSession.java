@@ -96,6 +96,14 @@ public class CombatSession {
         failedTasks.add(taskTitle);
     }
 
+    public void completeTask(String taskName) {
+        if (tasks == null) {
+            return;
+        }
+
+        tasks.removeIf(task -> task.getTaskName().equalsIgnoreCase(taskName));
+    }
+
     public boolean isFailed(Task task)
     {
         return failedTasks.contains(task.getTaskName());
