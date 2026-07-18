@@ -11,5 +11,6 @@ Algorithm will account for these data points:
 - Web scrape OSRS WIKI to get Completion Percentage of tasks
 
 ## Snippets of the CARoadmap
-![image](https://github.com/user-attachments/assets/1fa57f04-b5f5-45d6-8cd7-6506cec5512f)
+<img width="240" height="765" alt="image" src="https://github.com/user-attachments/assets/2bf6b411-68d3-4831-93a5-b65f618583b1" />
+
 
