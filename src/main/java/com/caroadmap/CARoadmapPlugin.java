@@ -182,6 +182,10 @@ public class CARoadmapPlugin extends Plugin
 			}
 			else
 			{
+				if (session.isBossDefeated()) {
+					session.startNextAttempt();
+				}
+
 				session.updateBoss(engagedBoss);
 				session.heartbeat();
 			}
@@ -285,9 +289,7 @@ public class CARoadmapPlugin extends Plugin
 							server.updatePlayerBossData(client.getAccountHash(), normalizeBossName(boss), killCount);
 						});
 
-						session.incrementKillStreak();
-
-						session.bossDefeated();
+						session.completeAttempt();
 
 						SwingUtilities.invokeLater(() ->
 								caRoadmapPanel.refreshCombat()

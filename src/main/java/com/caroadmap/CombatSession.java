@@ -111,7 +111,14 @@ public class CombatSession {
         killStreak++;
     }
 
-    public void bossDefeated()
+    public void startNextAttempt() {
+        bossDefeated = false;
+        failedTasks.clear();
+        startTime = System.currentTimeMillis();
+        finishTime = 0;
+    }
+
+    public void completeAttempt()
     {
         if (bossDefeated)
         {
@@ -120,6 +127,8 @@ public class CombatSession {
 
         finishTime = System.currentTimeMillis();
         bossDefeated = true;
+
+        incrementKillStreak();
     }
 
     public void end() {
