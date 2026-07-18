@@ -349,6 +349,7 @@ public class CARoadmapPanel extends PluginPanel{
 
         if (toRemove != null) {
             recommendedList.remove(toRemove);
+            recommendTasks.updateRecommendations(characterId, taskName);
             return true;
         }
 
@@ -359,6 +360,8 @@ public class CARoadmapPanel extends PluginPanel{
         List<Task> completed = recommendedList.stream()
                 .filter(Task::isDone)
                 .collect(Collectors.toList());
+
+        log.info(String.valueOf(recommendedList));
 
         recommendedList.removeAll(completed);
         completedList.addAll(completed);

@@ -78,7 +78,7 @@ public class Task {
         return String.format(
                 "Task{name='%s', type=%s, boss='%s', " +
                         "killsRemaining=%s, currentKills=%s, requiredKills=%s, " +
-                        "hasPb=%s, targetTime=%s, playerTime=%s}",
+                        "hasPb=%s, targetTime=%s, playerTime=%s, done=%s}",
                 taskName,
                 type,
                 boss,
@@ -87,7 +87,8 @@ public class Task {
                 requiredKills,
                 hasPb,
                 targetTimeSeconds,
-                playerTimeSeconds
+                playerTimeSeconds,
+                done
         );
     }
 

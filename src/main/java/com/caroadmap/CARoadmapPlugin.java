@@ -8,6 +8,7 @@ import com.caroadmap.dto.TaskDTO;
 import com.caroadmap.ui.CAKillCounter;
 import com.caroadmap.ui.CARoadmapPanel;
 import com.caroadmap.ui.CASpeedCounter;
+import com.google.gson.Gson;
 import net.runelite.api.*;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.WidgetLoaded;
@@ -77,6 +78,9 @@ public class CARoadmapPlugin extends Plugin
 	@Inject
 	private InfoBoxManager infoBoxManager;
 
+	@Inject
+	private Gson gson;
+
 	private CARoadmapPanel caRoadmapPanel;
 	private RecommendationCacheHandler recommendationCacheHandler;
 	private NavigationButton navButton;
@@ -101,7 +105,7 @@ public class CARoadmapPlugin extends Plugin
 	protected void startUp() throws Exception
 	{
 		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager, combatSessionManager);
-		this.recommendationCacheHandler = new RecommendationCacheHandler();
+		this.recommendationCacheHandler = new RecommendationCacheHandler(gson);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
 			log.error("Could not load icon");
@@ -460,10 +464,10 @@ public class CARoadmapPlugin extends Plugin
 		// Initialize classes that are dependent on username
 		this.recommendTasks = new RecommendTasks(server, configManager, recommendationCacheHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
-		this.wiseOldMan = new WiseOldMan(username);
+		this.wiseOldMan = new WiseOldMan(username, gson);
 
 		databaseExecutor.submit(() -> {
-			this.playerDataBatcher = new PlayerDataBatcher(username, accountHash, server);
+			this.playerDataBatcher = new PlayerDataBatcher(username, accountHash, server, gson);
 			fetchAndStorePlayerSkills(username);
 			playerBossData = wiseOldMan.fetchBossInfo();
 			if (playerBossData.length == 0) {
@@ -502,6 +506,7 @@ public class CARoadmapPlugin extends Plugin
 				if (caRoadmapPanel != null) {
 					caRoadmapPanel.setCharacterId(accountHash);
 					caRoadmapPanel.refresh();
+					caRoadmapPanel.taskCompleted("Duke Sucellus Adept");
 				}
 			});
 		});

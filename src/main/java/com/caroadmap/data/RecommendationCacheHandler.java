@@ -13,7 +13,7 @@ public class RecommendationCacheHandler {
     private final Gson gson;
 
 
-    public RecommendationCacheHandler() {
+    public RecommendationCacheHandler(Gson gson) {
         cacheDirectory = new File(
                 RuneLite.RUNELITE_DIR,
                 "caroadmap/cache"
@@ -23,7 +23,7 @@ public class RecommendationCacheHandler {
             cacheDirectory.mkdirs();
         }
 
-        gson = new Gson();
+        this.gson = gson;
     }
 
 
@@ -80,5 +80,20 @@ public class RecommendationCacheHandler {
                 cacheDirectory,
                 "recommendations_" + characterId + ".json"
         );
+    }
+
+    public void removeRecommendation(long characterId, String taskName)
+    {
+        RecommendationCache cache = loadCache(characterId);
+
+        if (cache == null)
+        {
+            return;
+        }
+
+        cache.getRecommendedTasks().removeIf(task ->
+                task.getTitle().equals(taskName));
+
+        saveCache(characterId, cache);
     }
 }

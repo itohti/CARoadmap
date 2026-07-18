@@ -31,6 +31,7 @@ import java.util.Map;
 @Slf4j
 public class CARoadmapServer {
     private final HttpClient client;
+
     private final Gson gson;
     private final String SERVER_URL = "https://kxin971pll.execute-api.us-east-1.amazonaws.com";
 //    private final String SERVER_URL = "http://localhost:8080";

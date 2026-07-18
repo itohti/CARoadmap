@@ -25,9 +25,11 @@ public class PlayerDataBatcher {
     private final CARoadmapServer server;
     private final File playerCache;
 
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    public PlayerDataBatcher(String username, long accountHash ,  CARoadmapServer server) {
+    private final Gson gson;
+
+    public PlayerDataBatcher(String username, long accountHash ,  CARoadmapServer server, Gson gson) {
+        this.gson = gson.newBuilder().setPrettyPrinting().create();
         this.username = username;
         this.server = server;
         this.accountHash = accountHash;

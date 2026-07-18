@@ -24,11 +24,12 @@ public class WiseOldMan {
     private final String displayName;
     private final HttpClient client;
 
-    private final Gson gson = new Gson();
+    private final Gson gson;
 
-    public WiseOldMan(String displayName) {
+    public WiseOldMan(String displayName, Gson gson) {
         this.displayName = displayName;
         this.client = HttpClient.newHttpClient();
+        this.gson = gson;
     }
 
     /**

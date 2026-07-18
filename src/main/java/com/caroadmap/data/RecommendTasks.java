@@ -65,6 +65,10 @@ public class RecommendTasks {
         fetchAndCacheRecommendationsFromServer(characterId);
     }
 
+    public void updateRecommendations(long characterId, String taskName) {
+        cacheHandler.removeRecommendation(characterId, taskName);
+    }
+
     private ArrayList<Task> loadCachedRecommendations(long characterId) {
 
         RecommendationCache cache =
