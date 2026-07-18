@@ -10,6 +10,14 @@ Algorithm will account for these data points:
 - Wise Old Man api for efficiency rates to rate KILL_COUNT tasks
 - Web scrape OSRS WIKI to get Completion Percentage of tasks
 
+## Features
+- Personalized Recommendations - Find the best Combat Achievements to complete based on your account's progression
+- Live Combat Assistant - Automatically detects supported boss encounters and displays only the relevant Combat Achievements
+- Speed Task Timer - Real-time timer with visual indicators showing whether you on the way to complete a speed task or failed it
+- Encounter Checklist – Keep track of Mechanical, Perfection, and Restriction tasks, with failed tasks clearly marked during each attempt.
+- Stamina Tracker – Tracks consecutive kill streaks for Stamina Combat Achievements.
+- Automatic Progress Sync – Completed Combat Achievements are detected and your recommendations stay up to date automatically.
+
 ## Snippets of the CARoadmap
 <img width="240" height="765" alt="image" src="https://github.com/user-attachments/assets/2bf6b411-68d3-4831-93a5-b65f618583b1" />
 
