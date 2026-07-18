@@ -13,4 +13,7 @@ Algorithm will account for these data points:
 ## Snippets of the CARoadmap
 <img width="240" height="765" alt="image" src="https://github.com/user-attachments/assets/2bf6b411-68d3-4831-93a5-b65f618583b1" />
 
+<img width="238" height="763" alt="image" src="https://github.com/user-attachments/assets/dee38aa5-ccf2-4106-914f-494151747557" />
+
+
 
