@@ -107,12 +107,6 @@ public class CombatSession {
         killStreak = 0;
     }
 
-    public void resetStreak()
-    {
-        streakValid = true;
-        killStreak = 0;
-    }
-
     public void incrementKillStreak() {
         killStreak++;
     }

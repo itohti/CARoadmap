@@ -374,7 +374,7 @@ public class CARoadmapPlugin extends Plugin
 				continue;
 			}
 
-			if (npc.getInteracting() == player)
+			if (npc.getInteracting() == player || player.getInteracting() == npc)
 			{
 				return npc;
 			}
