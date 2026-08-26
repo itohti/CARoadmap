@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -69,15 +70,17 @@ public class CARoadmapPanel extends PluginPanel{
     private SortingType sortingType;
 
     private final CombatSessionManager combatSessionManager;
+    private final ExecutorService generalExecutor;
 
     @Inject
-    public CARoadmapPanel(SpriteManager spriteManager, ConfigManager configManager, CombatSessionManager combatSessionManager)
+    public CARoadmapPanel(SpriteManager spriteManager, ConfigManager configManager, CombatSessionManager combatSessionManager, ExecutorService generalExecutor)
     {
         super(false);
         this.spriteManager = spriteManager;
         this.configManager = configManager;
         this.combatSessionManager = combatSessionManager;
         this.combatHeaderPanel = new CombatHeaderPanel(spriteManager);
+        this.generalExecutor = generalExecutor;
 
         this.ascending = configManager.getConfiguration("CARoadmap", "isAscending", Boolean.class);
         if (this.ascending == null)
@@ -240,7 +243,6 @@ public class CARoadmapPanel extends PluginPanel{
                 acnOrDsc.setIcon(ascending ? new ImageIcon(ascendingIcon) : new ImageIcon(descendingIcon));
                 acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
                 recommendTasks.setAscending(!recommendTasks.isAscending());
-                recommendTasks.getRecommendations(characterId);
                 refresh();
             }
         });
@@ -254,7 +256,10 @@ public class CARoadmapPanel extends PluginPanel{
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (characterId != null) {
-                    refresh();
+                    generalExecutor.submit(() -> {
+                        recommendTasks.getRecommendations(characterId);
+                        refresh();
+                    });
                 }
                 else {
                     log.error("Could not fetch recommendations. You need to be logged in.");
@@ -291,7 +296,6 @@ public class CARoadmapPanel extends PluginPanel{
                     recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
                     configManager.setConfiguration("CARoadmap", "sortingType", SortingType.valueOf(selected.toUpperCase()));
                 }
-                recommendTasks.getRecommendations(characterId);
                 refresh();
             }
         });

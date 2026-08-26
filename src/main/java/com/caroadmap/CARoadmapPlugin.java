@@ -5,6 +5,7 @@ import com.caroadmap.api.PlayerDataBatcher;
 import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.dto.TaskDTO;
+import com.caroadmap.ui.BossNameUtil;
 import com.caroadmap.ui.CAKillCounter;
 import com.caroadmap.ui.CARoadmapPanel;
 import com.caroadmap.ui.CASpeedCounter;
@@ -73,6 +74,9 @@ public class CARoadmapPlugin extends Plugin
 	private CARoadmapServer server;
 
 	@Inject
+	private WiseOldMan wiseOldMan;
+
+	@Inject
 	private SpriteManager spriteManager;
 
 	@Inject
@@ -86,7 +90,6 @@ public class CARoadmapPlugin extends Plugin
 	private NavigationButton navButton;
 
     private PlayerDataBatcher playerDataBatcher;
-	private WiseOldMan wiseOldMan;
 
 	private boolean getData = false;
 	private Boss[] playerBossData;
@@ -104,7 +107,20 @@ public class CARoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager, combatSessionManager);
+		databaseExecutor = Executors.newSingleThreadExecutor(r -> {
+			Thread t = Executors.defaultThreadFactory().newThread(r);
+			t.setDaemon(true);
+			t.setName("Database Thread");
+			return t;
+		});
+
+		generalExecutor = Executors.newSingleThreadExecutor(r -> {
+			Thread t = Executors.defaultThreadFactory().newThread(r);
+			t.setDaemon(true);
+			t.setName("General Thread");
+			return t;
+		});
+		this.caRoadmapPanel = new CARoadmapPanel(spriteManager, configManager, combatSessionManager, generalExecutor);
 		this.recommendationCacheHandler = new RecommendationCacheHandler(gson);
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/combat_achievements_icon.png");
 		if (icon == null) {
@@ -122,20 +138,6 @@ public class CARoadmapPlugin extends Plugin
 		catch (Exception e) {
 			log.error("There was an error in setting up the nav button: " + e.getMessage());
 		}
-
-		databaseExecutor = Executors.newSingleThreadExecutor(r -> {
-			Thread t = Executors.defaultThreadFactory().newThread(r);
-			t.setDaemon(true);
-			t.setName("Database Thread");
-			return t;
-		});
-
-		generalExecutor = Executors.newSingleThreadExecutor(r -> {
-			Thread t = Executors.defaultThreadFactory().newThread(r);
-			t.setDaemon(true);
-			t.setName("General Thread");
-			return t;
-		});
 	}
 
 	@Override
@@ -290,7 +292,7 @@ public class CARoadmapPlugin extends Plugin
 						);
 
 						generalExecutor.submit(() -> {
-							server.updatePlayerBossData(client.getAccountHash(), normalizeBossName(boss), killCount);
+							server.updatePlayerBossData(client.getAccountHash(), BossNameUtil.normalizeForDatabase(boss), killCount);
 						});
 
 						session.completeAttempt();
@@ -377,7 +379,7 @@ public class CARoadmapPlugin extends Plugin
 				continue;
 			}
 
-			String bossName = normalizeBossName(npc.getName());
+			String bossName = BossNameUtil.normalizeForDatabase(npc.getName());
 
 			if (!bossLookup.containsKey(bossName))
 			{
@@ -422,7 +424,7 @@ public class CARoadmapPlugin extends Plugin
 
 			for (TaskDTO dto :
 					server.fetchTaskFromBoss(
-							normalizeBossName(session.getBossName()),
+							BossNameUtil.normalizeForDatabase(session.getBossName()),
 							client.getAccountHash()
 					))
 			{
@@ -464,12 +466,11 @@ public class CARoadmapPlugin extends Plugin
 		// Initialize classes that are dependent on username
 		this.recommendTasks = new RecommendTasks(server, configManager, recommendationCacheHandler);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
-		this.wiseOldMan = new WiseOldMan(username, gson);
 
 		databaseExecutor.submit(() -> {
 			this.playerDataBatcher = new PlayerDataBatcher(username, accountHash, server, gson);
 			fetchAndStorePlayerSkills(username);
-			playerBossData = wiseOldMan.fetchBossInfo();
+			playerBossData = wiseOldMan.fetchBossInfo(username);
 			if (playerBossData.length == 0) {
 				log.error("Could not receive boss data.");
 			}
@@ -584,17 +585,6 @@ public class CARoadmapPlugin extends Plugin
 		}
 
 		return username;
-	}
-
-	private static String normalizeBossName(String metric) {
-		return metric
-				.toLowerCase()
-				.replace("_", " ")
-				.replace(":", " ")
-				.replace("-", " ")
-				.replace("'", "")
-				.replaceAll("\\s+", " ")
-				.trim();
 	}
 
 	@Provides

@@ -93,7 +93,7 @@ public class BossIconUtil {
     }
 
     private static HiscoreSkill getBossSkill(String boss) {
-        String normalized = normalizeBossName(boss);
+        String normalized = BossNameUtil.normalizeBossName(boss);
 
         // Exact alias first
         HiscoreSkill alias = HISCORE_ALIASES.get(normalized);
@@ -144,16 +144,5 @@ public class BossIconUtil {
         }
 
         return null;
-    }
-
-    private static String normalizeBossName(String metric) {
-        return metric
-                .toLowerCase()
-                .replace("_", " ")
-                .replace(":", " ")
-                .replace("-", " ")
-                .replace("'", "")
-                .replaceAll("\\s+", " ")
-                .trim();
     }
 }

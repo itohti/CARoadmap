@@ -55,13 +55,14 @@ public class RecommendTasks {
     public void getRecommendations(long characterId) {
         log.info("get Recommendations was called");
         if (hasValidCache(characterId)) {
-            log.info("Using cached recommendations");
             recommendedTasks = loadCachedRecommendations(characterId);
-            return;
+            if (recommendedTasks.size() >= 20) {
+                log.info("Using cached recommendations");
+                return;
+            }
+
+            log.info("Cache only has {} recommendations. Fetching fresh recommendations", recommendedTasks.size());
         }
-
-
-        log.info("Fetching fresh recommendations");
         fetchAndCacheRecommendationsFromServer(characterId);
     }
 
@@ -139,7 +140,7 @@ public class RecommendTasks {
                     convertRecommendations(cache);
 
 
-        } catch(IOException | InterruptedException e) {
+        } catch(Exception e) {
 
             log.error(
                     "Could not fetch recommendations",

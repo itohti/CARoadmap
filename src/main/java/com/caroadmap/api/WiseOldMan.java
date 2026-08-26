@@ -1,34 +1,32 @@
 package com.caroadmap.api;
 
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import com.caroadmap.data.Boss;
+import com.caroadmap.dto.EhbResponse;
+import com.caroadmap.ui.BossNameUtil;
+import com.google.gson.Gson;
+import lombok.extern.slf4j.Slf4j;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
+import javax.inject.Inject;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.caroadmap.data.Boss;
-import com.caroadmap.dto.EhbResponse;
-import com.google.gson.Gson;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.inject.Inject;
-
 @Slf4j
-public class WiseOldMan {
+public class WiseOldMan
+{
     private static final String WISE_OLD_MAN_API = "https://api.wiseoldman.net/v2/players/";
 
-    private final String displayName;
-    private final HttpClient client;
-
+    private final OkHttpClient client;
     private final Gson gson;
 
-    public WiseOldMan(String displayName, Gson gson) {
-        this.displayName = displayName;
-        this.client = HttpClient.newHttpClient();
+    @Inject
+    public WiseOldMan(OkHttpClient client, Gson gson)
+    {
+        this.client = client;
         this.gson = gson;
     }
 
@@ -36,60 +34,80 @@ public class WiseOldMan {
      * Fetches boss info from Wise Old Man API.
      * Returns an empty array if any error occurs or data is not found.
      */
-    public Boss[] fetchBossInfo() {
-        String encodedUsername = URLEncoder.encode(displayName, StandardCharsets.UTF_8).replace("+", "%20");
-        String url = WISE_OLD_MAN_API + encodedUsername;
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .GET()
+    public Boss[] fetchBossInfo(String displayName)
+    {
+        HttpUrl url = HttpUrl.parse(WISE_OLD_MAN_API + displayName);
+
+        if (url == null)
+        {
+            log.warn("Failed to create Wise Old Man URL for user '{}'", displayName);
+            return new Boss[0];
+        }
+
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
                 .build();
 
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() != 200) {
-                log.warn("Received non-200 response from Wise Old Man API: {}", response.statusCode());
+        try (Response response = client.newCall(request).execute())
+        {
+            if (!response.isSuccessful())
+            {
+                log.warn(
+                        "Received non-success response from Wise Old Man API for user '{}': {}",
+                        displayName,
+                        response.code()
+                );
                 return new Boss[0];
             }
-            EhbResponse ehbResponse = gson.fromJson(response.body(), EhbResponse.class);
+
+            if (response.body() == null)
+            {
+                log.warn("Wise Old Man API returned an empty response for user '{}'", displayName);
+                return new Boss[0];
+            }
+
+            EhbResponse ehbResponse = gson.fromJson(
+                    response.body().string(),
+                    EhbResponse.class
+            );
+
+            if (ehbResponse == null
+                    || ehbResponse.latestSnapshot == null
+                    || ehbResponse.latestSnapshot.data == null
+                    || ehbResponse.latestSnapshot.data.bosses == null)
+            {
+                log.warn("Wise Old Man API returned no boss data for user '{}'", displayName);
+                return new Boss[0];
+            }
+
             List<Boss> bossList = new ArrayList<>();
-            ehbResponse.latestSnapshot.data.bosses.values().forEach(boss -> {
-                String normalized = normalizeBossName(boss.metric);
+
+            ehbResponse.latestSnapshot.data.bosses.values().forEach(boss ->
+            {
+                String normalized = BossNameUtil.normalizeForDatabase(boss.metric);
                 bossList.add(new Boss(normalized, boss.kills, boss.ehb));
             });
 
             return bossList.toArray(new Boss[0]);
-        } catch (Exception e) {
-            log.error("Failed to fetch data from Wise Old Man API for user '{}': {}", displayName, e.getMessage());
+        }
+        catch (IOException e)
+        {
+            log.error(
+                    "Failed to fetch data from Wise Old Man API for user '{}'",
+                    displayName,
+                    e
+            );
             return new Boss[0];
         }
-    }
-
-    private static String normalizeBossName(String metric) {
-        return metric
-                .toLowerCase()
-                .replace("_", " ")
-                .replace(":", " ")
-                .replace("-", " ")
-                .replace("'", "")
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
-    private static String formatBossName(String metric) {
-        String[] words = metric.replace("_", " ").split("\\s+");
-        StringBuilder formatted = new StringBuilder();
-
-        for (String word : words) {
-            if (!word.isEmpty()) {
-                formatted.append(Character.toUpperCase(word.charAt(0)));
-                if (word.length() > 1) {
-                    formatted.append(word.substring(1).toLowerCase());
-                }
-                formatted.append(' ');
-            }
+        catch (Exception e)
+        {
+            log.error(
+                    "Failed to parse Wise Old Man API response for user '{}'",
+                    displayName,
+                    e
+            );
+            return new Boss[0];
         }
-
-        return formatted.toString().trim();
     }
 }
