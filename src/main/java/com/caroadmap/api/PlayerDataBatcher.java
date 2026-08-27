@@ -4,7 +4,6 @@ import com.caroadmap.data.Boss;
 import com.caroadmap.data.PlayerDataDiffUtil;
 import com.caroadmap.data.Task;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
