@@ -242,7 +242,9 @@ public class CARoadmapPanel extends PluginPanel{
                 configManager.setConfiguration("CARoadmap", "isAscending", ascending);
                 acnOrDsc.setIcon(ascending ? new ImageIcon(ascendingIcon) : new ImageIcon(descendingIcon));
                 acnOrDsc.setToolTipText(ascending ? "ascending" : "descending");
-                recommendTasks.setAscending(!recommendTasks.isAscending());
+                if (recommendTasks != null) {
+                    recommendTasks.setAscending(ascending);
+                }
                 refresh();
             }
         });
@@ -258,7 +260,7 @@ public class CARoadmapPanel extends PluginPanel{
                 if (characterId != null) {
                     generalExecutor.submit(() -> {
                         recommendTasks.getRecommendations(characterId);
-                        refresh();
+                        SwingUtilities.invokeLater(() -> refresh());
                     });
                 }
                 else {
@@ -288,13 +290,13 @@ public class CARoadmapPanel extends PluginPanel{
         sortDropdown.addActionListener(e -> {
             String selected = (String) sortDropdown.getSelectedItem();
             if (selected != null) {
-                if (selected.equals("Recommended")) {
-                    recommendTasks.setSortingType(SortingType.valueOf("SCORE"));
-                    configManager.setConfiguration("CARoadmap", "sortingType", SortingType.valueOf("SCORE"));
-                }
-                else {
-                    recommendTasks.setSortingType(SortingType.valueOf(selected.toUpperCase()));
-                    configManager.setConfiguration("CARoadmap", "sortingType", SortingType.valueOf(selected.toUpperCase()));
+                SortingType newType = selected.equals("Recommended")
+                        ? SortingType.SCORE
+                        : SortingType.valueOf(selected.toUpperCase());
+                this.sortingType = newType;
+                configManager.setConfiguration("CARoadmap", "sortingType", newType);
+                if (recommendTasks != null) {
+                    recommendTasks.setSortingType(newType);
                 }
                 refresh();
             }
@@ -307,7 +309,13 @@ public class CARoadmapPanel extends PluginPanel{
     }
 
     public void refresh() {
-        this.recommendedList = recommendTasks.getRecommendedTasks();
+        if (recommendTasks == null) {
+            return;
+        }
+        // Apply current sort settings, then copy so panel-side removals
+        // (separateCompletedTasks / taskCompleted) don't mutate RecommendTasks' list.
+        recommendTasks.resort();
+        this.recommendedList = new ArrayList<>(recommendTasks.getRecommendedTasks());
         separateCompletedTasks();
         updateTaskDisplay();
     }

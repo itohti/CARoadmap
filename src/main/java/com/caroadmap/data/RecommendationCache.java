@@ -12,5 +12,8 @@ public class RecommendationCache {
 
     private String generatedAt;
 
+    /** Knapsack point target this cache was generated for; null = server default (hard cap of 20). */
+    private Integer pointsNeeded;
+
     private ArrayList<RecommendedTaskDTO> recommendedTasks;
 }

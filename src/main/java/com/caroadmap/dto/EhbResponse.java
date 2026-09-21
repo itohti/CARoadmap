@@ -22,7 +22,6 @@ public class EhbResponse {
     public static class Boss {
         public String metric;
         public int kills;
-        public int rank;
         public double ehb;
     }
 }

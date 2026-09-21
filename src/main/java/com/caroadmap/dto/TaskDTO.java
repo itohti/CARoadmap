@@ -26,8 +26,4 @@ public class TaskDTO
     private Double player_time_seconds;
     private Double target_time_seconds;
     private Double seconds_to_save;
-
-    // Slayer
-    private Double required_slayer;
-    private Double slayer_gap;
 }

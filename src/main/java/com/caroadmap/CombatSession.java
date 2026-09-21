@@ -115,7 +115,7 @@ public class CombatSession {
         killStreak = 0;
     }
 
-    public void incrementKillStreak() {
+    private void incrementKillStreak() {
         killStreak++;
     }
 

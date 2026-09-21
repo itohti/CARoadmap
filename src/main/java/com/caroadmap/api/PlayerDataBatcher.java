@@ -117,9 +117,11 @@ public class PlayerDataBatcher {
             log.warn("No player cache found, uploading full batch.");
             if (server.storeCharacterData(username, accountHash, batch)) {
                 writeToLocalCache(batchCopy);
+                return true;
             }
             else {
                 log.error("Could not store character data.");
+                return false;
             }
         }
 

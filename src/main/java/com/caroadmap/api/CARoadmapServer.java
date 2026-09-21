@@ -4,11 +4,7 @@ import com.caroadmap.dto.GetRecommendationsResponse;
 import com.caroadmap.dto.TaskDTO;
 import com.caroadmap.dto.TaskFromBossResponse;
 import com.google.gson.Gson;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.RuneLite;
-import net.runelite.client.config.ConfigManager;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -17,7 +13,6 @@ import okhttp3.Response;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,18 +29,8 @@ public class CARoadmapServer
     private static final MediaType JSON =
             MediaType.get("application/json");
 
-    private static final File pluginDir =
-            new File(RuneLite.RUNELITE_DIR, "caroadmap");
-
     private final OkHttpClient client;
     private final Gson gson;
-
-    @Setter
-    @Getter
-    private String apiKey;
-
-    @Inject
-    private ConfigManager configManager;
 
     @Inject
     public CARoadmapServer(OkHttpClient client, Gson gson)
@@ -226,12 +211,17 @@ public class CARoadmapServer
         }
     }
 
-    public GetRecommendationsResponse getRecommendations(long characterId) throws Exception
+    public GetRecommendationsResponse getRecommendations(long characterId, Integer pointsNeeded) throws Exception
     {
         try
         {
             Map<String, Object> dataToSend = new HashMap<>();
             dataToSend.put("character_id", characterId);
+            // Omitted when null so the server treats it as None (hard cap of 20).
+            if (pointsNeeded != null)
+            {
+                dataToSend.put("points_needed", pointsNeeded);
+            }
 
             String jsonBody = gson.toJson(dataToSend);
 

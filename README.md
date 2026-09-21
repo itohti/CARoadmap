@@ -1,4 +1,14 @@
 # CARoadmap
+## Changelog
+
+### v1.1.0 — 2026-08-28
+- **New:** Target Reward Tier setting — recommendations now target the Combat
+  Achievement tier you're working toward, instead of a fixed list
+- **Fixed:** recommendations sometimes not loading on the stable client
+- **Fixed:** sorting the recommendations list now works
+- **Fixed:** combat achievement completion detection now works as intended
+
+
 ## Motivation
 On my Group Ironman I am hard stuck on the hard tier bracket. I need to find the most efficient route to get to the elite tier bracket.
 ## Problem

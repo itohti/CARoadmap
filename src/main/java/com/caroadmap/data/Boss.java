@@ -33,21 +33,6 @@ public class Boss {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        Boss otherBoss = (Boss) obj;
-
-        return (this.boss.equals(otherBoss.getBoss())
-                && this.kc == otherBoss.getKc()
-                && this.ehb == otherBoss.getEhb()
-                && this.killTime == otherBoss.getKillTime()
-        );
-    }
-
-    @Override
     public String toString() {
         return boss;
     }

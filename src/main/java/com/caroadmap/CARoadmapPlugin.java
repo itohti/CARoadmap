@@ -6,14 +6,10 @@ import com.caroadmap.api.WiseOldMan;
 import com.caroadmap.data.*;
 import com.caroadmap.dto.TaskDTO;
 import com.caroadmap.ui.BossNameUtil;
-import com.caroadmap.ui.CAKillCounter;
 import com.caroadmap.ui.CARoadmapPanel;
-import com.caroadmap.ui.CASpeedCounter;
 import com.google.gson.Gson;
 import net.runelite.api.*;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.*;
 
@@ -27,13 +23,13 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.hiscore.Skill;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
-import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
@@ -78,9 +74,6 @@ public class CARoadmapPlugin extends Plugin
 
 	@Inject
 	private SpriteManager spriteManager;
-
-	@Inject
-	private InfoBoxManager infoBoxManager;
 
 	@Inject
 	private Gson gson;
@@ -160,6 +153,96 @@ public class CARoadmapPlugin extends Plugin
 			log.info("Fetching because user is relogging in.");
 			hasFetched = false;
 		}
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if ("CARoadmap".equals(event.getGroup()) && "targetRewardTier".equals(event.getKey()))
+		{
+			clientThread.invoke(this::reloadRecommendationsForTarget);
+		}
+	}
+
+	/**
+	 * Re-resolves the target tier and, if the point goal actually changed,
+	 * refetches recommendations for it and refreshes the panel. Runs on the
+	 * client thread (reads varbits); the network call is handed to the executor.
+	 */
+	private void reloadRecommendationsForTarget()
+	{
+		if (recommendTasks == null || client.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		RewardTier targetTier = resolveTargetTier();
+		Integer pointsToTarget = pointsNeededOrNull(targetTier);
+
+		if (Objects.equals(recommendTasks.getPointsNeeded(), pointsToTarget))
+		{
+			return;
+		}
+
+		recommendTasks.setPointsNeeded(pointsToTarget);
+		long accountHash = client.getAccountHash();
+		log.info("Target tier changed to {}; refetching recommendations (points needed: {})", targetTier, pointsToTarget);
+
+		generalExecutor.submit(() ->
+		{
+			try
+			{
+				recommendTasks.getRecommendations(accountHash);
+			}
+			catch (Exception e)
+			{
+				log.error("Failed to refresh recommendations after tier change", e);
+			}
+
+			SwingUtilities.invokeLater(() ->
+			{
+				if (caRoadmapPanel != null)
+				{
+					caRoadmapPanel.refresh();
+				}
+			});
+		});
+	}
+
+	/**
+	 * Point gap to {@code targetTier}, or {@code null} when the player is already
+	 * at/past it (the server then returns its default hard cap of 20).
+	 * Reads varbits - call on the client thread.
+	 */
+	private Integer pointsNeededOrNull(RewardTier targetTier)
+	{
+		int gap = CombatAchievementProgress.pointsNeededFor(client, targetTier);
+		return gap > 0 ? gap : null;
+	}
+
+	/**
+	 * Returns the effective target reward tier, snapping the config value back up
+	 * if the player picked a tier below one they have already unlocked. Reads
+	 * varbits, so must be called on the client thread.
+	 */
+	private RewardTier resolveTargetTier()
+	{
+		RewardTier selected = config.targetRewardTier();
+
+		if (client.getGameState() != GameState.LOGGED_IN)
+		{
+			return selected;
+		}
+
+		RewardTier completed = CombatAchievementProgress.getCompletedTier(client);
+		if (completed != null && selected.ordinal() < completed.ordinal())
+		{
+			log.info("Target tier {} is below completed tier {}; snapping to {}.", selected, completed, completed);
+			configManager.setConfiguration("CARoadmap", "targetRewardTier", completed);
+			return completed;
+		}
+
+		return selected;
 	}
 
 	@Subscribe
@@ -253,7 +336,7 @@ public class CARoadmapPlugin extends Plugin
 
 			if (failedTaskMatcher.find())
 			{
-				String taskTitle = failedTaskMatcher.group(1).trim();
+				String taskTitle = failedTaskMatcher.group(1).replaceAll("@[A-Za-z0-9_]+@", "").trim();
 
 				CombatSession session =
 						combatSessionManager.getCurrentSession();
@@ -315,12 +398,17 @@ public class CARoadmapPlugin extends Plugin
 					Matcher matcher = pattern.matcher(msg);
 
 					if (matcher.find()) {
-						String taskName = matcher.group(1).trim();
+						// Jagex wraps the task name in chat link tokens like "@ach_comp@" that
+						// Text.removeTags() does not strip, so remove any "@token@" markers here.
+						String taskName = matcher.group(1).replaceAll("@[A-Za-z0-9_]+@", "").trim();
 
-						boolean removed = caRoadmapPanel.taskCompleted(taskName);
-						if (removed) {
-							log.info("Successfully marked task as complete");
-						}
+						SwingUtilities.invokeLater(() -> {
+							boolean removed = caRoadmapPanel.taskCompleted(taskName);
+							if (removed) {
+								log.info("Successfully marked task as complete");
+							}
+							caRoadmapPanel.refresh();
+						});
 
 						CombatSession session = combatSessionManager.getCurrentSession();
 
@@ -329,8 +417,6 @@ public class CARoadmapPlugin extends Plugin
 						generalExecutor.submit(() -> {
 							server.updatePlayerTaskStatus(client.getAccountHash(), taskName);
 						});
-
-						caRoadmapPanel.refresh();
 					}
 				}
 				catch (Exception e) {
@@ -339,21 +425,6 @@ public class CARoadmapPlugin extends Plugin
 			}
 		}
 	}
-
-//	@Subscribe
-//	public void onWidgetLoaded(WidgetLoaded event) {
-//		// we can see if the user completed a task with the widget pop up now.
-//		if (event.getGroupId() == 660) {
-//			Widget popupTextWidget = client.getWidget(660, 8);
-//			if (popupTextWidget != null && popupTextWidget.getText() != null) {
-//				String rawText = popupTextWidget.getText();
-//				log.info("Combat task popup text: {}", rawText);
-//
-//				String cleanText = rawText.replaceAll("<[^>]+>", "").trim();
-//				log.info("Cleaned task text: {}", cleanText);
-//			}
-//		}
-//	}
 
 	private boolean hasLeftInstance(CombatSession session)
 	{
@@ -463,8 +534,21 @@ public class CARoadmapPlugin extends Plugin
 		// store character information to the db
 		this.username = getUsername();
 		long accountHash = client.getAccountHash();
+
+		// Combat Achievement points progress (read on the client thread).
+		int caPoints = CombatAchievementProgress.getCurrentPoints(client);
+		RewardTier targetTier = resolveTargetTier();
+		Integer pointsToTarget = pointsNeededOrNull(targetTier);
+		log.info(
+			"CA points: {} | target tier: {} ({} pts) | points needed: {}",
+			caPoints,
+			targetTier,
+			CombatAchievementProgress.getThreshold(client, targetTier),
+			pointsToTarget
+		);
+
 		// Initialize classes that are dependent on username
-		this.recommendTasks = new RecommendTasks(server, configManager, recommendationCacheHandler);
+		this.recommendTasks = new RecommendTasks(server, configManager, recommendationCacheHandler, pointsToTarget);
 		caRoadmapPanel.setRecommendTasks(recommendTasks);
 
 		databaseExecutor.submit(() -> {
@@ -493,21 +577,25 @@ public class CARoadmapPlugin extends Plugin
 		});
 
 		fetchAndStorePlayerTasks();
-		databaseExecutor.submit(() -> {
+
+		generalExecutor.submit(() -> {
 			boolean result = playerDataBatcher.sendData();
 			if (!result) {
 				log.error("Did not upload player data to database");
 			}
-		});
-
-		generalExecutor.submit(() -> {
-			recommendTasks.getRecommendations(accountHash);
+			else {
+				try {
+					recommendTasks.getRecommendations(accountHash);
+				}
+				catch (Exception e) {
+					log.error("Failed to get recommendations with error", e);
+				}
+			}
 
 			SwingUtilities.invokeLater(() -> {
 				if (caRoadmapPanel != null) {
 					caRoadmapPanel.setCharacterId(accountHash);
 					caRoadmapPanel.refresh();
-					caRoadmapPanel.taskCompleted("Duke Sucellus Adept");
 				}
 			});
 		});

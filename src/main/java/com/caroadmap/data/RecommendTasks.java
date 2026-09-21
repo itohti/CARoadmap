@@ -8,11 +8,11 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Objects;
 
 @Slf4j
 public class RecommendTasks {
@@ -25,10 +25,19 @@ public class RecommendTasks {
     @Setter
     private Boolean ascending = true;
 
+    /**
+     * Point gap to the player's target reward tier, passed to the server knapsack.
+     * {@code null} means the player is already at/past the target - the server
+     * falls back to a hard cap of 20 recommendations.
+     */
+    @Getter
+    @Setter
+    private Integer pointsNeeded;
+
     private final CARoadmapServer server;
 
-    @Inject
-    public RecommendTasks(CARoadmapServer server, ConfigManager configManager, RecommendationCacheHandler cacheHandler) {
+    public RecommendTasks(CARoadmapServer server, ConfigManager configManager, RecommendationCacheHandler cacheHandler, Integer pointsNeeded) {
+        this.pointsNeeded = pointsNeeded;
         this.sortingType = configManager.getConfiguration("CARoadmap", "sortingType", SortingType.class);
         if (sortingType == null) {
             sortingType = SortingType.SCORE;
@@ -109,7 +118,7 @@ public class RecommendTasks {
         try {
 
             GetRecommendationsResponse response =
-                    server.getRecommendations(characterId);
+                    server.getRecommendations(characterId, pointsNeeded);
 
 
             if (response.getError() != null) {
@@ -128,6 +137,7 @@ public class RecommendTasks {
             cache.setGeneratedAt(
                     response.getGeneratedAt()
             );
+            cache.setPointsNeeded(pointsNeeded);
             cache.setRecommendedTasks(
                     response.getRecommendedTasks()
             );
@@ -149,6 +159,11 @@ public class RecommendTasks {
         }
     }
 
+    /** Re-sorts the current recommendation list in place using the active sort settings. */
+    public void resort() {
+        sortRecommendations(recommendedTasks);
+    }
+
     private void sortRecommendations(ArrayList<Task> tasks) {
         if (sortingType == SortingType.SCORE) {
             tasks.sort(this.ascending ? Task.byScore() : Task.byScore().reversed());
@@ -166,6 +181,16 @@ public class RecommendTasks {
 
 
         if (cache == null) {
+            return false;
+        }
+
+        // Cache was built for a different point target; force a refetch.
+        if (!Objects.equals(cache.getPointsNeeded(), pointsNeeded)) {
+            log.info(
+                    "Cached recommendations target {} points, need {}. Refetching.",
+                    cache.getPointsNeeded(),
+                    pointsNeeded
+            );
             return false;
         }
 

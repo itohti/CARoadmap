@@ -4,8 +4,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 @Getter
 @Setter
@@ -38,35 +36,6 @@ public class Task {
         this.type = type;
         this.tier = tier;
         this.done = done;
-    }
-
-    public Task(String boss, String taskName, String taskDescription, String type, String tier, String done) {
-        this.boss = boss;
-        this.taskName = taskName;
-        this.taskDescription = taskDescription;
-        this.type = TaskType.valueOf(type);
-        this.tier = Integer.parseInt(tier);
-        this.done = Boolean.parseBoolean(done);
-    }
-
-    public void setType(int type) {
-        this.type = TaskType.fromValue(type);
-    }
-
-    /**
-     * This method is used to convert the Task object into a Map<String, Object> for Firestore.
-     * @return a Map<String, Object> where the variable name maps to the variable object.
-     */
-    public Map<String, Object> formatTask() {
-        Map<String, Object> task = new HashMap<>();
-        task.put("Boss", boss);
-        task.put("Task Name", taskName);
-        task.put("Task Description", taskDescription);
-        task.put("Type", type.name());
-        task.put("Tier", tier);
-        task.put("Done", done);
-
-        return task;
     }
 
     /**

@@ -18,19 +18,6 @@ public class CombatSessionManager {
         );
     }
 
-    public void updateSession(NPC boss)
-    {
-        if (currentSession == null)
-        {
-            return;
-        }
-
-        if (boss != null)
-        {
-            currentSession.updateBoss(boss);
-        }
-    }
-
     public void endSession() {
         if (currentSession != null)
         {
@@ -42,11 +29,6 @@ public class CombatSessionManager {
         }
 
         currentSession = null;
-    }
-
-    public boolean isActive()
-    {
-        return currentSession != null;
     }
 
     public void updateKillCount(int killCount)
