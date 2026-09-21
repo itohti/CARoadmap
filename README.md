@@ -10,7 +10,7 @@
 
 
 ## Motivation
-On my Group Ironman I am hard stuck on the hard tier bracket. I need to find the most efficient route to get to the elite tier bracket.
+I need to find the most efficient route to get to the elite tier bracket.
 ## Problem
 Looking through each boss and different tasks could get tiresome and overwhelming.
 ## Solution
